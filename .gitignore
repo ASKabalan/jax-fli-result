@@ -1,0 +1,12 @@
+# HuggingFace-uploaded data (tracked in HF dataset repo, not here)
+results/*/catalogs/
+results/*/perf_reports/
+results/*/perf.csv
+results/*/LOGS/
+results/*/logs.tar.gz
+results/*/results/
+results/*/runs/
+
+# Jupyter artifacts
+.ipynb_checkpoints/
+__pycache__/
