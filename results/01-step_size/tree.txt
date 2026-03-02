@@ -1,0 +1,159 @@
+.
+├── catalogs
+│   ├── h100_cosmo_M1024x1024x1024_B6000x6000x6000_STEPS10_H128 128_c0.2589_S80.8159_s0.parquet
+│   ├── h100_cosmo_M1024x1024x1024_B6000x6000x6000_STEPS20_H128 128_c0.2589_S80.8159_s0.parquet
+│   ├── h100_cosmo_M1024x1024x1024_B6000x6000x6000_STEPS30_H128 128_c0.2589_S80.8159_s0.parquet
+│   ├── h100_cosmo_M1024x1024x1024_B6000x6000x6000_STEPS40_H128 128_c0.2589_S80.8159_s0.parquet
+│   ├── h100_cosmo_M1024x1024x1024_B6000x6000x6000_STEPS50_H128 128_c0.2589_S80.8159_s0.parquet
+│   ├── h100_cosmo_M1024x1024x1024_B6000x6000x6000_STEPS5_H128 128_c0.2589_S80.8159_s0.parquet
+│   ├── h100_cosmo_M1536x1536x1536_B6000x6000x6000_STEPS10_H192 192_c0.2589_S80.8159_s0.parquet
+│   ├── h100_cosmo_M1536x1536x1536_B6000x6000x6000_STEPS20_H192 192_c0.2589_S80.8159_s0.parquet
+│   ├── h100_cosmo_M1536x1536x1536_B6000x6000x6000_STEPS30_H192 192_c0.2589_S80.8159_s0.parquet
+│   ├── h100_cosmo_M1536x1536x1536_B6000x6000x6000_STEPS40_H192 192_c0.2589_S80.8159_s0.parquet
+│   ├── h100_cosmo_M1536x1536x1536_B6000x6000x6000_STEPS50_H192 192_c0.2589_S80.8159_s0.parquet
+│   ├── h100_cosmo_M1536x1536x1536_B6000x6000x6000_STEPS5_H192 192_c0.2589_S80.8159_s0.parquet
+│   ├── h100_cosmo_M2048x2048x2048_B6000x6000x6000_STEPS10_H256 256_c0.2589_S80.8159_s0.parquet
+│   ├── h100_cosmo_M2048x2048x2048_B6000x6000x6000_STEPS20_H256 256_c0.2589_S80.8159_s0.parquet
+│   ├── h100_cosmo_M2048x2048x2048_B6000x6000x6000_STEPS30_H256 256_c0.2589_S80.8159_s0.parquet
+│   ├── h100_cosmo_M2048x2048x2048_B6000x6000x6000_STEPS40_H256 256_c0.2589_S80.8159_s0.parquet
+│   ├── h100_cosmo_M2048x2048x2048_B6000x6000x6000_STEPS50_H256 256_c0.2589_S80.8159_s0.parquet
+│   ├── h100_cosmo_M2048x2048x2048_B6000x6000x6000_STEPS5_H256 256_c0.2589_S80.8159_s0.parquet
+│   ├── h100_cosmo_M3072x3072x3072_B6000x6000x6000_STEPS10_H384 384_c0.2589_S80.8159_s0.parquet
+│   ├── h100_cosmo_M3072x3072x3072_B6000x6000x6000_STEPS20_H384 384_c0.2589_S80.8159_s0.parquet
+│   ├── h100_cosmo_M3072x3072x3072_B6000x6000x6000_STEPS30_H384 384_c0.2589_S80.8159_s0.parquet
+│   ├── h100_cosmo_M3072x3072x3072_B6000x6000x6000_STEPS40_H384 384_c0.2589_S80.8159_s0.parquet
+│   ├── h100_cosmo_M3072x3072x3072_B6000x6000x6000_STEPS50_H384 384_c0.2589_S80.8159_s0.parquet
+│   ├── h100_cosmo_M3072x3072x3072_B6000x6000x6000_STEPS5_H384 384_c0.2589_S80.8159_s0.parquet
+│   ├── h100_cosmo_M4096x4096x4096_B6000x6000x6000_STEPS10_H512 512_c0.2589_S80.8159_s0.parquet
+│   ├── h100_cosmo_M4096x4096x4096_B6000x6000x6000_STEPS20_H512 512_c0.2589_S80.8159_s0.parquet
+│   ├── h100_cosmo_M4096x4096x4096_B6000x6000x6000_STEPS30_H512 512_c0.2589_S80.8159_s0.parquet
+│   ├── h100_cosmo_M4096x4096x4096_B6000x6000x6000_STEPS40_H512 512_c0.2589_S80.8159_s0.parquet
+│   ├── h100_cosmo_M4096x4096x4096_B6000x6000x6000_STEPS50_H512 512_c0.2589_S80.8159_s0.parquet
+│   ├── h100_cosmo_M4096x4096x4096_B6000x6000x6000_STEPS5_H512 512_c0.2589_S80.8159_s0.parquet
+│   ├── h100_cosmo_M512x512x512_B6000x6000x6000_STEPS10_H64 64_c0.2589_S80.8159_s0.parquet
+│   ├── h100_cosmo_M512x512x512_B6000x6000x6000_STEPS20_H64 64_c0.2589_S80.8159_s0.parquet
+│   ├── h100_cosmo_M512x512x512_B6000x6000x6000_STEPS30_H64 64_c0.2589_S80.8159_s0.parquet
+│   ├── h100_cosmo_M512x512x512_B6000x6000x6000_STEPS40_H64 64_c0.2589_S80.8159_s0.parquet
+│   ├── h100_cosmo_M512x512x512_B6000x6000x6000_STEPS50_H64 64_c0.2589_S80.8159_s0.parquet
+│   └── h100_cosmo_M512x512x512_B6000x6000x6000_STEPS5_H64 64_c0.2589_S80.8159_s0.parquet
+├── LOGS
+│   └── traces
+│       ├── ffi_simulate_nbody_mesh_size_1024_1024_1024_box_si_0d95bfd5.err
+│       ├── ffi_simulate_nbody_mesh_size_1024_1024_1024_box_si_0d95bfd5.out
+│       ├── ffi_simulate_nbody_mesh_size_1024_1024_1024_box_si_1ec989af.err
+│       ├── ffi_simulate_nbody_mesh_size_1024_1024_1024_box_si_1ec989af.out
+│       ├── ffi_simulate_nbody_mesh_size_1024_1024_1024_box_si_41b0bbc9.err
+│       ├── ffi_simulate_nbody_mesh_size_1024_1024_1024_box_si_41b0bbc9.out
+│       ├── ffi_simulate_nbody_mesh_size_1024_1024_1024_box_si_5e1f0b0b.err
+│       ├── ffi_simulate_nbody_mesh_size_1024_1024_1024_box_si_5e1f0b0b.out
+│       ├── ffi_simulate_nbody_mesh_size_1024_1024_1024_box_si_b453c8b2.err
+│       ├── ffi_simulate_nbody_mesh_size_1024_1024_1024_box_si_b453c8b2.out
+│       ├── ffi_simulate_nbody_mesh_size_1024_1024_1024_box_si_d09fff10.err
+│       ├── ffi_simulate_nbody_mesh_size_1024_1024_1024_box_si_d09fff10.out
+│       ├── ffi_simulate_nbody_mesh_size_1536_1536_1536_box_si_52dd5a69.err
+│       ├── ffi_simulate_nbody_mesh_size_1536_1536_1536_box_si_52dd5a69.out
+│       ├── ffi_simulate_nbody_mesh_size_1536_1536_1536_box_si_9d4c9eae.err
+│       ├── ffi_simulate_nbody_mesh_size_1536_1536_1536_box_si_9d4c9eae.out
+│       ├── ffi_simulate_nbody_mesh_size_1536_1536_1536_box_si_d3693d27.err
+│       ├── ffi_simulate_nbody_mesh_size_1536_1536_1536_box_si_d3693d27.out
+│       ├── ffi_simulate_nbody_mesh_size_1536_1536_1536_box_si_ddf779b7.err
+│       ├── ffi_simulate_nbody_mesh_size_1536_1536_1536_box_si_ddf779b7.out
+│       ├── ffi_simulate_nbody_mesh_size_1536_1536_1536_box_si_e2efc8a1.err
+│       ├── ffi_simulate_nbody_mesh_size_1536_1536_1536_box_si_e2efc8a1.out
+│       ├── ffi_simulate_nbody_mesh_size_1536_1536_1536_box_si_ed911519.err
+│       ├── ffi_simulate_nbody_mesh_size_1536_1536_1536_box_si_ed911519.out
+│       ├── ffi_simulate_nbody_mesh_size_2048_2048_2048_box_si_0894b1e1.err
+│       ├── ffi_simulate_nbody_mesh_size_2048_2048_2048_box_si_0894b1e1.out
+│       ├── ffi_simulate_nbody_mesh_size_2048_2048_2048_box_si_35cce287.err
+│       ├── ffi_simulate_nbody_mesh_size_2048_2048_2048_box_si_35cce287.out
+│       ├── ffi_simulate_nbody_mesh_size_2048_2048_2048_box_si_961152b6.err
+│       ├── ffi_simulate_nbody_mesh_size_2048_2048_2048_box_si_961152b6.out
+│       ├── ffi_simulate_nbody_mesh_size_2048_2048_2048_box_si_961622e3.err
+│       ├── ffi_simulate_nbody_mesh_size_2048_2048_2048_box_si_961622e3.out
+│       ├── ffi_simulate_nbody_mesh_size_2048_2048_2048_box_si_99a82bd5.err
+│       ├── ffi_simulate_nbody_mesh_size_2048_2048_2048_box_si_99a82bd5.out
+│       ├── ffi_simulate_nbody_mesh_size_2048_2048_2048_box_si_ffb53819.err
+│       ├── ffi_simulate_nbody_mesh_size_2048_2048_2048_box_si_ffb53819.out
+│       ├── ffi_simulate_nbody_mesh_size_3072_3072_3072_box_si_8a768387.err
+│       ├── ffi_simulate_nbody_mesh_size_3072_3072_3072_box_si_8a768387.out
+│       ├── ffi_simulate_nbody_mesh_size_3072_3072_3072_box_si_99d51a60.err
+│       ├── ffi_simulate_nbody_mesh_size_3072_3072_3072_box_si_99d51a60.out
+│       ├── ffi_simulate_nbody_mesh_size_3072_3072_3072_box_si_adc1b6d1.err
+│       ├── ffi_simulate_nbody_mesh_size_3072_3072_3072_box_si_adc1b6d1.out
+│       ├── ffi_simulate_nbody_mesh_size_3072_3072_3072_box_si_c88d0f7f.err
+│       ├── ffi_simulate_nbody_mesh_size_3072_3072_3072_box_si_c88d0f7f.out
+│       ├── ffi_simulate_nbody_mesh_size_3072_3072_3072_box_si_e66086b0.err
+│       ├── ffi_simulate_nbody_mesh_size_3072_3072_3072_box_si_e66086b0.out
+│       ├── ffi_simulate_nbody_mesh_size_3072_3072_3072_box_si_f33456fe.err
+│       ├── ffi_simulate_nbody_mesh_size_3072_3072_3072_box_si_f33456fe.out
+│       ├── ffi_simulate_nbody_mesh_size_4096_4096_4096_box_si_3d50be37.err
+│       ├── ffi_simulate_nbody_mesh_size_4096_4096_4096_box_si_3d50be37.out
+│       ├── ffi_simulate_nbody_mesh_size_4096_4096_4096_box_si_8c230832.err
+│       ├── ffi_simulate_nbody_mesh_size_4096_4096_4096_box_si_8c230832.out
+│       ├── ffi_simulate_nbody_mesh_size_4096_4096_4096_box_si_99c51d2d.err
+│       ├── ffi_simulate_nbody_mesh_size_4096_4096_4096_box_si_99c51d2d.out
+│       ├── ffi_simulate_nbody_mesh_size_4096_4096_4096_box_si_b656b64f.err
+│       ├── ffi_simulate_nbody_mesh_size_4096_4096_4096_box_si_b656b64f.out
+│       ├── ffi_simulate_nbody_mesh_size_4096_4096_4096_box_si_b6694a87.err
+│       ├── ffi_simulate_nbody_mesh_size_4096_4096_4096_box_si_b6694a87.out
+│       ├── ffi_simulate_nbody_mesh_size_4096_4096_4096_box_si_fc243df6.err
+│       ├── ffi_simulate_nbody_mesh_size_4096_4096_4096_box_si_fc243df6.out
+│       ├── ffi_simulate_nbody_mesh_size_512_512_512_box_size__44dd0936.err
+│       ├── ffi_simulate_nbody_mesh_size_512_512_512_box_size__44dd0936.out
+│       ├── ffi_simulate_nbody_mesh_size_512_512_512_box_size__63ec4f9b.err
+│       ├── ffi_simulate_nbody_mesh_size_512_512_512_box_size__63ec4f9b.out
+│       ├── ffi_simulate_nbody_mesh_size_512_512_512_box_size__6f8c8d8c.err
+│       ├── ffi_simulate_nbody_mesh_size_512_512_512_box_size__6f8c8d8c.out
+│       ├── ffi_simulate_nbody_mesh_size_512_512_512_box_size__72f0fb95.err
+│       ├── ffi_simulate_nbody_mesh_size_512_512_512_box_size__72f0fb95.out
+│       ├── ffi_simulate_nbody_mesh_size_512_512_512_box_size__7aceedb0.err
+│       ├── ffi_simulate_nbody_mesh_size_512_512_512_box_size__7aceedb0.out
+│       ├── ffi_simulate_nbody_mesh_size_512_512_512_box_size__bbe1c7f4.err
+│       ├── ffi_simulate_nbody_mesh_size_512_512_512_box_size__bbe1c7f4.out
+│       ├── fli_simulate_nbody_mesh_size_2048_2048_2048_box_si_d026ba39.err
+│       ├── fli_simulate_nbody_mesh_size_2048_2048_2048_box_si_d026ba39.out
+│       ├── fli_simulate_nbody_mesh_size_3072_3072_3072_box_si_36be98a6.err
+│       └── fli_simulate_nbody_mesh_size_3072_3072_3072_box_si_36be98a6.out
+├── perf.csv
+├── perf_reports
+│   ├── 1024_128_1_NCCL_float32_nbody_steps10.md
+│   ├── 1024_128_1_NCCL_float32_nbody_steps20.md
+│   ├── 1024_128_1_NCCL_float32_nbody_steps30.md
+│   ├── 1024_128_1_NCCL_float32_nbody_steps40.md
+│   ├── 1024_128_1_NCCL_float32_nbody_steps50.md
+│   ├── 1024_128_1_NCCL_float32_nbody_steps5.md
+│   ├── 1536_128_1_NCCL_float32_nbody_steps10.md
+│   ├── 1536_128_1_NCCL_float32_nbody_steps20.md
+│   ├── 1536_128_1_NCCL_float32_nbody_steps30.md
+│   ├── 1536_128_1_NCCL_float32_nbody_steps40.md
+│   ├── 1536_128_1_NCCL_float32_nbody_steps50.md
+│   ├── 1536_128_1_NCCL_float32_nbody_steps5.md
+│   ├── 2048_128_1_NCCL_float32_nbody_steps10.md
+│   ├── 2048_128_1_NCCL_float32_nbody_steps20.md
+│   ├── 2048_128_1_NCCL_float32_nbody_steps30.md
+│   ├── 2048_128_1_NCCL_float32_nbody_steps40.md
+│   ├── 2048_128_1_NCCL_float32_nbody_steps50.md
+│   ├── 2048_128_1_NCCL_float32_nbody_steps5.md
+│   ├── 3072_128_1_NCCL_float32_nbody_steps10.md
+│   ├── 3072_128_1_NCCL_float32_nbody_steps20.md
+│   ├── 3072_128_1_NCCL_float32_nbody_steps30.md
+│   ├── 3072_128_1_NCCL_float32_nbody_steps40.md
+│   ├── 3072_128_1_NCCL_float32_nbody_steps50.md
+│   ├── 3072_128_1_NCCL_float32_nbody_steps5.md
+│   ├── 4096_128_1_NCCL_float32_nbody_steps10.md
+│   ├── 4096_128_1_NCCL_float32_nbody_steps20.md
+│   ├── 4096_128_1_NCCL_float32_nbody_steps30.md
+│   ├── 4096_128_1_NCCL_float32_nbody_steps40.md
+│   ├── 4096_128_1_NCCL_float32_nbody_steps50.md
+│   ├── 4096_128_1_NCCL_float32_nbody_steps5.md
+│   ├── 512_128_1_NCCL_float32_nbody_steps10.md
+│   ├── 512_128_1_NCCL_float32_nbody_steps20.md
+│   ├── 512_128_1_NCCL_float32_nbody_steps30.md
+│   ├── 512_128_1_NCCL_float32_nbody_steps40.md
+│   ├── 512_128_1_NCCL_float32_nbody_steps50.md
+│   └── 512_128_1_NCCL_float32_nbody_steps5.md
+├── publish.py
+├── results
+└── tree.txt
+
+6 directories, 151 files
