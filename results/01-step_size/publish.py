@@ -83,14 +83,5 @@ if os.path.exists(archive_path):
     print("Uploaded logs.tar.gz")
     os.remove(archive_path)
     print("Removed local logs.tar.gz")
-
-# ── Step 6: Upload README.md (dataset card) ───────────────────────────────────
-api.upload_file(
-    path_or_fileobj=os.path.join(repo_root, "README.md"),
-    path_in_repo="README.md",
-    repo_id=REPO_ID,
-    repo_type="dataset",
-)
-print("Uploaded README.md")
-
+    
 print(f"\nDone! View at: https://huggingface.co/datasets/{REPO_ID}")
