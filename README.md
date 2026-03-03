@@ -27,5 +27,13 @@ The goal of this experiment to select the optimal size of the time step of the P
 
 We test with mesh sizes from `512³` to `4096³` and with 5 different time step sizes for each mesh size. The time step sizes are selected such that the total number of steps is in `[5, 10, 20, 30, 40, 50]`.
 `
-Analysis notebook : [01-step_size.ipynb](analysis/01-step_size.ipynb)
+Analysis notebook : [01-step_size.ipynb](https://github.com/ASKabalan/jax-fli-result/blob/main/analysis/01-step_size.ipynb)
+
 config name : `01-step_size_cosmology`
+
+to load 
+
+```python
+from datasets import load_dataset
+dataset = load_dataset("ASKabalan/jax-fli-experiments", "01-step_size_cosmology")
+```
