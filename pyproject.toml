@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "CLI and GUI launcher for jax-fli simulation jobs"
 requires-python = ">=3.10"
 dependencies = [
-    "jax-fli[all] @ git+https://github.com/ASKabalan/jax-fli",
+    "jax-fli[all] @ git+https://github.com/ASKabalan/jax-fli@inference-validation",
     "streamlit>=1.30",
     "matplotlib>=3.0",
     "plotly>=5.0",
