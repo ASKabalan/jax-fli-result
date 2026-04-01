@@ -14,5 +14,8 @@ dependencies = [
     "plotly>=5.0",
 ]
 
+[project.scripts]
+fli-launcher = "launcher.main:main"
+
 [tool.setuptools.packages.find]
 include = ["launcher*", "app*"]

@@ -19,7 +19,7 @@ TS_NEAR="0.3938 0.4052 0.4165 0.4276 0.4387 0.5565 0.5669 0.5774 0.5879 0.5983"
 TS_FAR="0.4052 0.4165 0.4276 0.4387 0.4497 0.5669 0.5774 0.5879 0.5983 0.6088"
 
 echo "=== 02-against-cosmo-grid: KDK (30 steps, LPT2, shell-spacing=a) ==="
-python -m launcher simulate \
+fli-launcher simulate \
     --mode sbatch \
     --account "$ACCOUNT" --nodes "$NODES" --pdim 256 1 \
     --time-limit "$TIME_LIMIT" --slurm-script "$SLURM_SCRIPT" \
@@ -35,7 +35,7 @@ python -m launcher simulate \
     --solver kdk --lpt-order 2
 
 echo "=== 02-against-cosmo-grid: BF (10 steps, LPT1, shell-spacing=growth) ==="
-python -m launcher simulate \
+fli-launcher simulate \
     --mode sbatch \
     --account "$ACCOUNT" --nodes "$NODES" --pdim 256 1 \
     --time-limit "$TIME_LIMIT" --slurm-script "$SLURM_SCRIPT" \

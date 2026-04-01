@@ -4,6 +4,7 @@
 # KDK (LPT2, shell-spacing=a) + BF (LPT1, shell-spacing=growth)
 # Usage: SLURM_SCRIPT=/path/to/script.sh bash run_00_validating_simple_pm.sh
 set -euo pipefail
+SLURM_SCRIPT=${SLURM_SCRIPT:-"scripts/slurm/default.sh"}
 
 ACCOUNT=tkc
 NODES=4
@@ -11,7 +12,7 @@ TIME_LIMIT="00:30:00"
 OUTPUT_DIR="results/00-validating-simple-pm"
 
 echo "=== 00-validating-simple-pm: KDK (LPT2, shell-spacing=a) ==="
-python -m launcher simulate \
+fli-launcher simulate \
     --mode sbatch \
     --account "$ACCOUNT" \
     --nodes "$NODES" \
@@ -19,7 +20,7 @@ python -m launcher simulate \
     --time-limit "$TIME_LIMIT" \
     --slurm-script "$SLURM_SCRIPT" \
     --output-dir "$OUTPUT_DIR" \
-    --mesh-size 512 512 512 \
+    --mesh-size 256 256 256 \
     --box-size 500.0 500.0 500.0 \
     --nside 512 \
     --t0 0.001 \
@@ -31,7 +32,7 @@ python -m launcher simulate \
     --lpt-order 2
 
 echo "=== 00-validating-simple-pm: BF (LPT1, shell-spacing=growth) ==="
-python -m launcher simulate \
+fli-launcher simulate \
     --mode sbatch \
     --account "$ACCOUNT" \
     --nodes "$NODES" \
@@ -39,7 +40,7 @@ python -m launcher simulate \
     --time-limit "$TIME_LIMIT" \
     --slurm-script "$SLURM_SCRIPT" \
     --output-dir "$OUTPUT_DIR" \
-    --mesh-size 512 512 512 \
+    --mesh-size 256 256 256 \
     --box-size 500.0 500.0 500.0 \
     --nside 512 \
     --t0 0.001 \

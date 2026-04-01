@@ -8,8 +8,6 @@
 # Usage: SLURM_SCRIPT=/path/to/script.sh bash run_01_step_size.sh
 set -euo pipefail
 
-mv results/01-step_size results/01-step_size_BACKUP
-
 ACCOUNT=tkc
 NODES=64
 TIME_LIMIT="01:00:00"
@@ -27,7 +25,7 @@ for NB_STEPS in 5 6 8 10 15 20 30 50; do
     # ---- KDK: LPT2, shell-spacing=a ----
 
     # 512 (nside 512)
-    python -m launcher simulate \
+    fli-launcher simulate \
         --mode sbatch \
         --account "$ACCOUNT" --nodes "$NODES" --pdim 256 1 \
         --time-limit "$TIME_LIMIT" --slurm-script "$SLURM_SCRIPT" \
@@ -41,7 +39,7 @@ for NB_STEPS in 5 6 8 10 15 20 30 50; do
         --solver kdk --lpt-order 2
 
     # 1024 / 1536 / 2048 / 3072 (nside 1024)
-    python -m launcher simulate \
+    fli-launcher simulate \
         --mode sbatch \
         --account "$ACCOUNT" --nodes "$NODES" --pdim 256 1 \
         --time-limit "$TIME_LIMIT" --slurm-script "$SLURM_SCRIPT" \
@@ -55,7 +53,7 @@ for NB_STEPS in 5 6 8 10 15 20 30 50; do
         --solver kdk --lpt-order 2
 
     # 4096 (nside 1024, paint-nside 2048)
-    python -m launcher simulate \
+    fli-launcher simulate \
         --mode sbatch \
         --account "$ACCOUNT" --nodes "$NODES" --pdim 256 1 \
         --time-limit "$TIME_LIMIT" --slurm-script "$SLURM_SCRIPT" \
@@ -71,7 +69,7 @@ for NB_STEPS in 5 6 8 10 15 20 30 50; do
     # ---- BF: LPT1, shell-spacing=growth ----
 
     # 512 (nside 512)
-    python -m launcher simulate \
+    fli-launcher simulate \
         --mode sbatch \
         --account "$ACCOUNT" --nodes "$NODES" --pdim 256 1 \
         --time-limit "$TIME_LIMIT" --slurm-script "$SLURM_SCRIPT" \
@@ -85,7 +83,7 @@ for NB_STEPS in 5 6 8 10 15 20 30 50; do
         --solver bf --lpt-order 1
 
     # 1024 / 1536 / 2048 / 3072 (nside 1024)
-    python -m launcher simulate \
+    fli-launcher simulate \
         --mode sbatch \
         --account "$ACCOUNT" --nodes "$NODES" --pdim 256 1 \
         --time-limit "$TIME_LIMIT" --slurm-script "$SLURM_SCRIPT" \
@@ -99,7 +97,7 @@ for NB_STEPS in 5 6 8 10 15 20 30 50; do
         --solver bf --lpt-order 1
 
     # 4096 (nside 1024, paint-nside 2048)
-    python -m launcher simulate \
+    fli-launcher simulate \
         --mode sbatch \
         --account "$ACCOUNT" --nodes "$NODES" --pdim 256 1 \
         --time-limit "$TIME_LIMIT" --slurm-script "$SLURM_SCRIPT" \
