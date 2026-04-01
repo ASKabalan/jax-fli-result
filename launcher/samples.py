@@ -65,7 +65,7 @@ def run(args):
                 "--nb-shells", str(args.nb_shells),
                 "--halo-fraction", str(args.halo_fraction),
                 "--observer-position", *[str(v) for v in args.observer_position],
-                "--nz-shear", args.nz_shear,
+                "--nz-shear", *[str(v) for v in args.nz_shear],
                 "--min-z", str(args.min_z),
                 "--max-z", str(args.max_z),
                 "--n-integrate", str(args.n_integrate),
@@ -74,6 +74,8 @@ def run(args):
             ]
             if args.paint_nside is not None:
                 fli_cmd += ["--paint-nside", str(args.paint_nside)]
+            if args.equal_vol:
+                fli_cmd.append("--equal-vol")
             fli_cmd += [
                 "--num-samples", str(args.num_samples),
                 "--seed", str(batch),

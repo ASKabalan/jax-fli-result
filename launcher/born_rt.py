@@ -46,7 +46,7 @@ def run(args):
         "--nodes", str(args.nodes),
         "--input", f"{args.input_dir}/*.parquet",
         "--output", args.output_dir,
-        "--nz-shear", args.nz_shear,
+        "--nz-shear", *[str(v) for v in args.nz_shear],
         "--min-z", str(args.min_z),
         "--max-z", str(args.max_z),
         "--n-integrate", str(args.n_integrate),

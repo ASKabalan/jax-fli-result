@@ -1,6 +1,7 @@
 """Shared argument-group builders and dispatch logic for all subcommands."""
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 
@@ -43,7 +44,7 @@ def add_common_sim_args(p):
 def add_lensing_args(p):
     """Lensing parameters."""
     g = p.add_argument_group("lensing")
-    g.add_argument("--nz-shear", default="s3")
+    g.add_argument("--nz-shear", nargs="+", default=["s3"])
     g.add_argument("--min-z", type=float, default=0.01)
     g.add_argument("--max-z", type=float, default=1.5)
     g.add_argument("--n-integrate", type=int, default=32)
@@ -64,6 +65,8 @@ def add_lightcone_args(p):
                    help="Far-side shell boundary scale factors")
     g.add_argument("--drift-on-lightcone", action="store_true")
     g.add_argument("--min-width", type=float, default=50.0)
+    g.add_argument("--equal-vol", action="store_true",
+                   help="Use equal-volume shell partitioning (fli-infer/fli-samples)")
 
 
 # ---------------------------------------------------------------------------
@@ -147,7 +150,7 @@ def dispatch(args, job_name, tag, fli_cmd, *, use_gpu=True, always_mpirun=False,
         f"--job-name={job_name}",
         f"--output={args.output_logs}/%x_%j.out",
         f"--error={args.output_logs}/%x_%j.err",
-        args.slurm_script,
+        os.path.expandvars(args.slurm_script),
         tag,
     ]
     subprocess.run(sbatch + fli_cmd, check=True, env=env)

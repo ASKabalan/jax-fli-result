@@ -47,6 +47,12 @@ def add_subparser(sub):
     g.add_argument("--omega-c", nargs="+", type=float, default=[0.2589])
     g.add_argument("--sigma8", nargs="+", type=float, default=[0.8159])
     g.add_argument("--seed", nargs="+", type=int, default=[0])
+    g.add_argument(
+        "--shell-spacing",
+        choices=["comoving", "equal_vol", "a", "growth"],
+        default="comoving",
+    )
+    g.add_argument("--solver", choices=["kdk", "dkd", "bf"], default="kdk")
 
     # drift-on-lightcone is ON by default in the bash script
     p.set_defaults(drift_on_lightcone=True, func=run)
@@ -116,10 +122,12 @@ def run(args):
                             fli_cmd.append("--drift-on-lightcone")
                         fli_cmd += [
                             "--min-width", str(args.min_width),
+                            "--shell-spacing", args.shell_spacing,
+                            "--solver", args.solver,
                         ]
                         if args.simulation_type == "lensing":
                             fli_cmd += [
-                                "--nz-shear", args.nz_shear,
+                                "--nz-shear", *[str(v) for v in args.nz_shear],
                                 "--min-z", str(args.min_z),
                                 "--max-z", str(args.max_z),
                                 "--n-integrate", str(args.n_integrate),

@@ -103,6 +103,7 @@ def run(args):
         fli_cmd.append("--equal-vol")
     fli_cmd += [
         "--min-width", str(args.min_width),
+        "--nz-shear", *[str(v) for v in args.nz_shear],
         "--min-z", str(args.min_z),
         "--max-z", str(args.max_z),
         "--n-integrate", str(args.n_integrate),

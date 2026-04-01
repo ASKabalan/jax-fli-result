@@ -135,7 +135,7 @@ def run(args):
         fli_cmd += ["--density-widths", *[str(d) for d in args.density_widths]]
     if args.simulation_type == "lensing":
         fli_cmd += [
-            "--nz-shear", args.nz_shear,
+            "--nz-shear", *[str(v) for v in args.nz_shear],
             "--min-z", str(args.min_z),
             "--max-z", str(args.max_z),
             "--n-integrate", str(args.n_integrate),
