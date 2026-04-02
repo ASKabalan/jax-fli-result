@@ -6,6 +6,11 @@ results/*/LOGS/
 results/*/logs.tar.gz
 results/*/results/
 results/*/runs/
+results/OLD
+*parquet
+
+*egg-info/
+.vscode/
 
 # Jupyter artifacts
 .ipynb_checkpoints/

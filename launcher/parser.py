@@ -38,7 +38,20 @@ def add_common_sim_args(p):
     g.add_argument("--scheme", default="bilinear",
                    choices=["ngp", "bilinear", "rbf_neighbor"])
     g.add_argument("--paint-nside", type=int, default=None)
+    g.add_argument("--kernel-width-arcmin", type=float, default=None, dest="kernel_width_arcmin")
     g.add_argument("--enable-x64", action="store_true")
+
+
+def add_cosmo_args(p):
+    """Full cosmological parameters (beyond Omega_c / sigma8)."""
+    g = p.add_argument_group("cosmology")
+    g.add_argument("--h", type=float, default=0.6774, help="Hubble parameter (default: 0.6774)")
+    g.add_argument("--omega-b", type=float, default=0.0486, dest="omega_b")
+    g.add_argument("--omega-k", type=float, default=0.0, dest="omega_k")
+    g.add_argument("--w0", type=float, default=-1.0)
+    g.add_argument("--wa", type=float, default=0.0)
+    g.add_argument("--n-s", type=float, default=0.9667, dest="n_s")
+    g.add_argument("--omega-nu", type=float, default=0.0, dest="omega_nu")
 
 
 def add_lensing_args(p):

@@ -14,24 +14,28 @@ st.title("jax-fli Launcher")
 st.markdown("""
 Welcome to the **jax-fli Launcher GUI**. Use the sidebar to navigate to a subcommand page.
 
-Each page mirrors a `python -m launcher <subcommand>` CLI command. Fill in the parameter
-forms on the left, and the generated command string will appear at the bottom of the page.
+In order to start be sure that you have installed the package with the correct extras 
+
+```bash
+pip install git+https://github.com/ASKabalan/jax-fli-result.git
+```
+
+For raytracing and sampling scripts you need to add
+
+```bash
+pip install git+https://github.com/ASKabalan/jax-fli-result.git[raytracing,sampling]
+```
 
 ### Available commands
 
 | Page | Command | Description |
 |------|---------|-------------|
-| **Simulate** | `simulate` | Submit fli-simulate jobs over a mesh x box x cosmology x seed grid |
-| **Grid** | `grid` | Submit a single fli-grid job (full parameter-grid exploration) |
-| **Samples** | `samples` | Submit fli-samples jobs across chains x batches |
+| **Simulate** | `simulate` | Submit multiple simulation jobs over a mesh x box x cosmology x seed grid also provides performance metrics |
+| **Grid** | `grid` | Same as simulate but will only submit a single job that will loop over the parameter grid |
+| **Samples** | `samples` | Generate samples of simulation (unconditioned) can be used to generate mock samples of initial conditions |
 | **Infer** | `infer` | Submit a single fli-infer MCMC inference job |
 | **Extract** | `extract` | Submit a fli-extract job to compute chain statistics |
 | **Born RT** | `born-rt` | Submit a fli-born-rt Born lensing post-processing job |
 | **Dorian RT** | `dorian-rt` | Submit a fli-dorian-rt ray-tracing lensing job (CPU/MPI) |
 
-### Quick start
-
-```bash
-streamlit run app/Home.py
-```
 """)

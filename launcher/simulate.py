@@ -5,6 +5,7 @@ import os
 
 from launcher.parser import (
     add_common_sim_args,
+    add_cosmo_args,
     add_lensing_args,
     add_lightcone_args,
     add_slurm_args,
@@ -19,6 +20,7 @@ def add_subparser(sub):
     )
     add_slurm_args(p)
     add_common_sim_args(p)
+    add_cosmo_args(p)
     add_lensing_args(p)
     add_lightcone_args(p)
 
@@ -119,6 +121,8 @@ def run(args):
                         ]
                         if args.paint_nside is not None:
                             fli_cmd += ["--paint-nside", str(args.paint_nside)]
+                        if args.kernel_width_arcmin is not None:
+                            fli_cmd += ["--kernel-width-arcmin", str(args.kernel_width_arcmin)]
                         if args.drift_on_lightcone:
                             fli_cmd.append("--drift-on-lightcone")
                         fli_cmd += [
@@ -136,8 +140,14 @@ def run(args):
                         fli_cmd += [
                             "--Omega-c", str(oc),
                             "--sigma8", str(s8),
+                            "--Omega-b", str(args.omega_b),
+                            "--h", str(args.h),
+                            "--n-s", str(args.n_s),
+                            "--Omega-k", str(args.omega_k),
+                            "--w0", str(args.w0),
+                            "--wa", str(args.wa),
+                            "--Omega-nu", str(args.omega_nu),
                             "--seed", str(sd),
-                            "--h", "0.6774",
                             "--output", out_file,
                             "--perf",
                             "--iterations", "3",
