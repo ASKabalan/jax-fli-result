@@ -100,8 +100,9 @@ def run(args):
                             "--halo-fraction", str(args.halo_fraction),
                             "--observer-position", *[str(v) for v in args.observer_position],
                             "--nside", str(args.nside),
-                            "--nb-shells", str(args.nb_shells),
                         ]
+                        if not args.ts and not args.ts_near and not args.ts_far:
+                            fli_cmd += ["--nb-shells", str(args.nb_shells)]
                         if args.ts:
                             fli_cmd += ["--ts", *[str(t) for t in args.ts]]
                         if args.ts_near:

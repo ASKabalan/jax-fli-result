@@ -11,7 +11,9 @@ set -euo pipefail
 ACCOUNT=tkc
 NODES=64
 TIME_LIMIT="01:00:00"
-OUTPUT_DIR="results/01-step_size"
+OUTPUT_DIR="01-step_size"
+KDK_DIR="$OUTPUT_DIR/KDK"
+BF_DIR="$OUTPUT_DIR/BF"
 
 for NB_STEPS in 5 6 8 10 15 20 30 50; do
     if [ "$NB_STEPS" -le 8 ]; then
@@ -29,7 +31,7 @@ for NB_STEPS in 5 6 8 10 15 20 30 50; do
         --mode sbatch \
         --account "$ACCOUNT" --nodes "$NODES" --pdim 256 1 \
         --time-limit "$TIME_LIMIT" --slurm-script "$SLURM_SCRIPT" \
-        --output-dir "$OUTPUT_DIR" \
+        --output-dir "$KDK_DIR" \
         --mesh-size 512 512 512 \
         --box-size 6000.0 6000.0 6000.0 \
         --nside 512 \
@@ -43,7 +45,7 @@ for NB_STEPS in 5 6 8 10 15 20 30 50; do
         --mode sbatch \
         --account "$ACCOUNT" --nodes "$NODES" --pdim 256 1 \
         --time-limit "$TIME_LIMIT" --slurm-script "$SLURM_SCRIPT" \
-        --output-dir "$OUTPUT_DIR" \
+        --output-dir "$KDK_DIR" \
         --mesh-size 1024 1024 1024  1536 1536 1536  2048 2048 2048  3072 3072 3072 \
         --box-size 6000.0 6000.0 6000.0 \
         --nside 1024 \
@@ -57,7 +59,7 @@ for NB_STEPS in 5 6 8 10 15 20 30 50; do
         --mode sbatch \
         --account "$ACCOUNT" --nodes "$NODES" --pdim 256 1 \
         --time-limit "$TIME_LIMIT" --slurm-script "$SLURM_SCRIPT" \
-        --output-dir "$OUTPUT_DIR" \
+        --output-dir "$KDK_DIR" \
         --mesh-size 4096 4096 4096 \
         --box-size 6000.0 6000.0 6000.0 \
         --nside 1024 --paint-nside 2048 \
@@ -73,7 +75,7 @@ for NB_STEPS in 5 6 8 10 15 20 30 50; do
         --mode sbatch \
         --account "$ACCOUNT" --nodes "$NODES" --pdim 256 1 \
         --time-limit "$TIME_LIMIT" --slurm-script "$SLURM_SCRIPT" \
-        --output-dir "$OUTPUT_DIR" \
+        --output-dir "$BF_DIR" \
         --mesh-size 512 512 512 \
         --box-size 6000.0 6000.0 6000.0 \
         --nside 512 \
@@ -87,7 +89,7 @@ for NB_STEPS in 5 6 8 10 15 20 30 50; do
         --mode sbatch \
         --account "$ACCOUNT" --nodes "$NODES" --pdim 256 1 \
         --time-limit "$TIME_LIMIT" --slurm-script "$SLURM_SCRIPT" \
-        --output-dir "$OUTPUT_DIR" \
+        --output-dir "$BF_DIR" \
         --mesh-size 1024 1024 1024  1536 1536 1536  2048 2048 2048  3072 3072 3072 \
         --box-size 6000.0 6000.0 6000.0 \
         --nside 1024 \
@@ -101,7 +103,7 @@ for NB_STEPS in 5 6 8 10 15 20 30 50; do
         --mode sbatch \
         --account "$ACCOUNT" --nodes "$NODES" --pdim 256 1 \
         --time-limit "$TIME_LIMIT" --slurm-script "$SLURM_SCRIPT" \
-        --output-dir "$OUTPUT_DIR" \
+        --output-dir "$BF_DIR" \
         --mesh-size 4096 4096 4096 \
         --box-size 6000.0 6000.0 6000.0 \
         --nside 1024 --paint-nside 2048 \

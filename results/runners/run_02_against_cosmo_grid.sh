@@ -10,42 +10,49 @@
 set -euo pipefail
 
 ACCOUNT=tkc
-NODES=64
+NODES=32
+GPUS=4
 TIME_LIMIT="01:00:00"
-OUTPUT_DIR="results/02-against-cosmo-grid"
+OUTPUT_DIR="02-against-cosmo-grid"
+
+MESH_SIZE=2048
+NSIDE=1024
+SLURM_SCRIPT="02-against-cosmo-grid.slurm.sh"
 
 # 10 selected shells from jax-fli/notebooks/a_near.txt and a_far.txt
-TS_NEAR="0.3938 0.4052 0.4165 0.4276 0.4387 0.5565 0.5669 0.5774 0.5879 0.5983"
-TS_FAR="0.4052 0.4165 0.4276 0.4387 0.4497 0.5669 0.5774 0.5879 0.5983 0.6088"
+TS_NEAR="0.4052 0.4165 0.4276 0.4387 0.5565 0.5669 0.5774 0.5879 0.5983"
+TS_FAR="0.4165 0.4276 0.4387 0.4497 0.5669 0.5774 0.5879 0.5983 0.6088"
 
 echo "=== 02-against-cosmo-grid: KDK (30 steps, LPT2, shell-spacing=a) ==="
 fli-launcher simulate \
     --mode sbatch \
-    --account "$ACCOUNT" --nodes "$NODES" --pdim 256 1 \
+    --account "$ACCOUNT" --nodes "$NODES" --pdim 128 1 \
+    --gpus-per-node $GPUS \
+    --tasks-per-node $GPUS \
     --time-limit "$TIME_LIMIT" --slurm-script "$SLURM_SCRIPT" \
     --output-dir "$OUTPUT_DIR" \
-    --mesh-size 2048 2048 2048 \
+    --mesh-size $MESH_SIZE $MESH_SIZE $MESH_SIZE \
     --box-size 6000.0 6000.0 6000.0 \
-    --nside 1024 \
-    --t0 0.001 --nb-steps 30 \
-    --nb-shells 10 --shell-spacing a \
+    --nside $NSIDE \
+    --t0 0.001  \
+    --shell-spacing a \
     --ts-near $TS_NEAR \
     --ts-far $TS_FAR \
-    --drift-on-lightcone \
     --solver kdk --lpt-order 2
 
 echo "=== 02-against-cosmo-grid: BF (10 steps, LPT1, shell-spacing=growth) ==="
 fli-launcher simulate \
     --mode sbatch \
-    --account "$ACCOUNT" --nodes "$NODES" --pdim 256 1 \
+    --account "$ACCOUNT" --nodes "$NODES" --pdim 128 1 \
+    --gpus-per-node $GPUS \
+    --tasks-per-node $GPUS \
     --time-limit "$TIME_LIMIT" --slurm-script "$SLURM_SCRIPT" \
     --output-dir "$OUTPUT_DIR" \
-    --mesh-size 2048 2048 2048 \
+    --mesh-size $MESH_SIZE $MESH_SIZE $MESH_SIZE \
     --box-size 6000.0 6000.0 6000.0 \
-    --nside 1024 \
-    --t0 0.001 --nb-steps 10 \
-    --nb-shells 10 --shell-spacing growth \
+    --nside $NSIDE \
+    --t0 0.001 \
+    --shell-spacing growth \
     --ts-near $TS_NEAR \
     --ts-far $TS_FAR \
-    --drift-on-lightcone \
     --solver bf --lpt-order 1
