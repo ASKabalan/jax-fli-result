@@ -39,6 +39,11 @@ def render_sim_form(defaults: dict | None = None, prefix: str = "") -> dict:
         if use_paint:
             paint_nside = st.number_input("paint_nside", min_value=1, value=defaults.get("paint_nside", 64), key=f"{prefix}paint_nside")
 
+        use_kernel = st.checkbox("Set kernel_width_arcmin", value=defaults.get("kernel_width_arcmin") is not None, key=f"{prefix}use_kernel_width")
+        kernel_width_arcmin = None
+        if use_kernel:
+            kernel_width_arcmin = st.number_input("kernel_width_arcmin (arcmin)", min_value=0.0, value=defaults.get("kernel_width_arcmin", 1.0), format="%.4f", key=f"{prefix}kernel_width_arcmin")
+
         enable_x64 = st.checkbox("Enable x64", value=defaults.get("enable_x64", False), key=f"{prefix}enable_x64")
 
         return {
@@ -49,5 +54,6 @@ def render_sim_form(defaults: dict | None = None, prefix: str = "") -> dict:
             "interp": interp,
             "scheme": scheme,
             "paint_nside": paint_nside,
+            "kernel_width_arcmin": kernel_width_arcmin,
             "enable_x64": enable_x64,
         }

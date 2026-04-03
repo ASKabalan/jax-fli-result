@@ -31,7 +31,15 @@ def add_subparser(sub):
         choices=["lpt", "nbody", "lensing"],
         default="nbody",
     )
-    g.add_argument("--nside", type=int, default=64)
+    # Output target (mutually exclusive in fli-simulate)
+    out_target = g.add_mutually_exclusive_group()
+    out_target.add_argument("--nside", type=int, default=None)
+    out_target.add_argument("--flatsky-npix", nargs=2, type=int, default=None, metavar=("H", "W"), dest="flatsky_npix")
+    out_target.add_argument("--field-size", nargs=2, type=int, default=None, metavar=("H", "W"), dest="field_size")
+    out_target.add_argument("--density", action="store_true", default=False)
+    # Profiling
+    g.add_argument("--perf", action="store_true", default=False, help="Benchmark: warmup + N timed iterations")
+    g.add_argument("--iterations", type=int, default=3, help="Number of timed iterations for --perf")
     g.add_argument(
         "--mesh-size",
         nargs="+",
@@ -55,6 +63,12 @@ def add_subparser(sub):
         default="comoving",
     )
     g.add_argument("--solver", choices=["kdk", "dkd", "bf"], default="kdk")
+    g.add_argument(
+        "--density-widths",
+        nargs="*",
+        default=None,
+        help="Space-separated scalar density widths",
+    )
 
     # drift-on-lightcone is ON by default in the bash script
     p.set_defaults(drift_on_lightcone=True, func=run)
@@ -101,8 +115,16 @@ def run(args):
                             "--nodes", str(args.nodes),
                             "--halo-fraction", str(args.halo_fraction),
                             "--observer-position", *[str(v) for v in args.observer_position],
-                            "--nside", str(args.nside),
                         ]
+                        # Output target (mutually exclusive)
+                        if args.nside is not None:
+                            fli_cmd += ["--nside", str(args.nside)]
+                        elif getattr(args, "flatsky_npix", None) is not None:
+                            fli_cmd += ["--flatsky-npix", str(args.flatsky_npix)]
+                            if getattr(args, "field_size", None) is not None:
+                                fli_cmd += ["--field-size", str(args.field_size)]
+                        elif getattr(args, "density", False):
+                            fli_cmd.append("--density")
                         if not args.ts and not args.ts_near and not args.ts_far:
                             fli_cmd += ["--nb-shells", str(args.nb_shells)]
                         if args.ts:
@@ -130,6 +152,8 @@ def run(args):
                             "--shell-spacing", args.shell_spacing,
                             "--solver", args.solver,
                         ]
+                        if getattr(args, "density_widths", None):
+                            fli_cmd += ["--density-widths", *[str(d) for d in args.density_widths]]
                         if args.simulation_type == "lensing":
                             fli_cmd += [
                                 "--nz-shear", *[str(v) for v in args.nz_shear],
@@ -149,9 +173,10 @@ def run(args):
                             "--Omega-nu", str(args.omega_nu),
                             "--seed", str(sd),
                             "--output", out_file,
-                            "--perf",
-                            "--iterations", "3",
                         ]
+                        if getattr(args, "perf", False):
+                            iterations = getattr(args, "iterations", 3) or 3
+                            fli_cmd += ["--perf", "--iterations", str(iterations)]
                         if args.enable_x64:
                             fli_cmd.append("--enable-x64")
 

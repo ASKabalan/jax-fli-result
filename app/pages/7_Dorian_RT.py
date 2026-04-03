@@ -1,4 +1,4 @@
-"""Dorian RT page — mirrors `python -m launcher dorian-rt`."""
+"""Dorian RT page — mirrors `fli-launch dorian-rt`."""
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))

@@ -1,4 +1,4 @@
-"""Samples page — mirrors `python -m launcher samples`."""
+"""Samples page — mirrors `fli-launch samples`."""
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))

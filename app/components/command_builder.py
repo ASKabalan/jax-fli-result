@@ -31,7 +31,18 @@ _SIM_SPEC = [
     ("interp", str, "none"),
     ("scheme", str, "bilinear"),
     ("paint-nside", "optional_int", None),
+    ("kernel-width-arcmin", "optional_float", None),
     ("enable-x64", bool, False),
+]
+
+_COSMO_SPEC = [
+    ("h", float, 0.6774),
+    ("omega-b", float, 0.0486),
+    ("omega-k", float, 0.0),
+    ("w0", float, -1.0),
+    ("wa", float, 0.0),
+    ("n-s", float, 0.9667),
+    ("omega-nu", float, 0.0),
 ]
 
 _LENSING_SPEC = [
@@ -59,8 +70,8 @@ def _to_param_key(flag: str) -> str:
 
 
 def build_command(subcommand: str, params: dict) -> str:
-    """Build a `python -m launcher <subcommand> ...` command string."""
-    parts = ["python", "-m", "launcher", subcommand]
+    """Build a `fli-launcher <subcommand> ...` command string."""
+    parts = ["fli-launcher", subcommand]
 
     specs = _get_specs_for(subcommand)
     for flag, typ, default in specs:
@@ -70,8 +81,9 @@ def build_command(subcommand: str, params: dict) -> str:
         if typ == bool:
             if value:
                 parts.append(f"--{flag}")
-        elif typ in ("optional_int", "optional_str", "optional_list"):
-            if value is not None:
+        elif typ in ("optional_int", "optional_str", "optional_float", "optional_list"):
+            # Skip None or empty string
+            if value is not None and value != "":
                 if typ == "optional_list":
                     parts.append(f"--{flag}")
                     parts.extend(str(v) for v in value)
@@ -82,8 +94,8 @@ def build_command(subcommand: str, params: dict) -> str:
                 parts.append(f"--{flag}")
                 parts.extend(str(v) for v in value)
         elif typ == "list_str":
-            # list of strings (grid omega-c/sigma8/seed which can be range strings)
-            if value is not None:
+            # list of strings (omega-c/sigma8/seed which can be range strings)
+            if value:  # skip None and empty list
                 parts.append(f"--{flag}")
                 parts.extend(str(v) for v in value)
         elif typ in (int, float, str):
@@ -96,27 +108,38 @@ def build_command(subcommand: str, params: dict) -> str:
 def _get_specs_for(subcommand: str) -> list:
     """Return the full argument spec list for a subcommand."""
     specs = {
-        "simulate": _SLURM_SPEC + _SIM_SPEC + _LENSING_SPEC + _LIGHTCONE_SPEC + [
+        "simulate": _SLURM_SPEC + _SIM_SPEC + _COSMO_SPEC + _LENSING_SPEC + _LIGHTCONE_SPEC + [
             ("output-dir", str, "results/cosmology_runs"),
             ("simulation-type", str, "nbody"),
-            ("nside", int, 64),
+            # Output target (mutually exclusive — only one emitted)
+            ("nside", "optional_int", None),
+            ("flatsky-npix", "optional_list", None),
+            ("field-size", "optional_list", None),
+            ("density", bool, False),
             ("mesh-size", list, [64, 64, 64, 32, 32, 32]),
             ("box-size", list, [1000.0, 1000.0, 1000.0]),
-            ("omega-c", list, [0.2589]),
-            ("sigma8", list, [0.8159]),
-            ("seed", list, [0]),
+            ("omega-c", "list_str", []),
+            ("sigma8", "list_str", []),
+            ("seed", "list_str", []),
             ("shell-spacing", str, "comoving"),
             ("solver", str, "kdk"),
+            ("density-widths", "optional_list", None),
+            ("perf", bool, False),
+            ("iterations", "optional_int", None),
         ],
-        "grid": _SLURM_SPEC + _SIM_SPEC + _LENSING_SPEC + _LIGHTCONE_SPEC + [
+        "grid": _SLURM_SPEC + _SIM_SPEC + _COSMO_SPEC + _LENSING_SPEC + _LIGHTCONE_SPEC + [
             ("output-dir", str, "results/grid_runs"),
             ("simulation-type", str, "nbody"),
+            # Output target (mutually exclusive — only one emitted)
+            ("nside", "optional_int", None),
+            ("flatsky-npix", "optional_list", None),
+            ("field-size", "optional_list", None),
+            ("density", bool, False),
             ("mesh-size", list, [64, 64, 64, 32, 32, 32]),
             ("box-size", list, [500.0, 500.0, 500.0, 1000.0, 1000.0, 1000.0]),
-            ("omega-c", "list_str", ["0.2"]),
-            ("sigma8", "list_str", ["0.8"]),
-            ("seed", "list_str", ["0"]),
-            ("nside", list, [512]),
+            ("omega-c", "list_str", []),
+            ("sigma8", "list_str", []),
+            ("seed", "list_str", []),
             ("shell-spacing", str, "comoving"),
             ("solver", str, "kdk"),
             ("density-widths", "optional_list", None),

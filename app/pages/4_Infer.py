@@ -1,4 +1,4 @@
-"""Infer page — mirrors `python -m launcher infer`."""
+"""Infer page — mirrors `fli-launch infer`."""
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))

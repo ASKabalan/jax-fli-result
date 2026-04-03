@@ -1,4 +1,4 @@
-"""Extract page — mirrors `python -m launcher extract`."""
+"""Extract page — mirrors `fli-launch extract`."""
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))

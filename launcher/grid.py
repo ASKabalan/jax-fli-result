@@ -5,6 +5,7 @@ import os
 
 from launcher.parser import (
     add_common_sim_args,
+    add_cosmo_args,
     add_lensing_args,
     add_lightcone_args,
     add_slurm_args,
@@ -29,6 +30,7 @@ def add_subparser(sub):
     )
     add_slurm_args(p)
     add_common_sim_args(p)
+    add_cosmo_args(p)
     add_lensing_args(p)
     add_lightcone_args(p)
 
@@ -140,7 +142,16 @@ def run(args):
             "--max-z", str(args.max_z),
             "--n-integrate", str(args.n_integrate),
         ]
-    fli_cmd += ["--h", "0.6774", "--output-dir", args.output_dir]
+    fli_cmd += [
+        "--h", str(args.h),
+        "--Omega-b", str(args.omega_b),
+        "--n-s", str(args.n_s),
+        "--Omega-k", str(args.omega_k),
+        "--w0", str(args.w0),
+        "--wa", str(args.wa),
+        "--Omega-nu", str(args.omega_nu),
+        "--output-dir", args.output_dir,
+    ]
     if args.enable_x64:
         fli_cmd.append("--enable-x64")
 

@@ -1,4 +1,4 @@
-"""Born RT page — mirrors `python -m launcher born-rt`."""
+"""Born RT page — mirrors `fli-launch born-rt`."""
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
