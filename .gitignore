@@ -1,13 +1,8 @@
 # HuggingFace-uploaded data (tracked in HF dataset repo, not here)
-results/*/catalogs/
-results/*/perf_reports/
-results/*/perf.csv
-results/*/LOGS/
-results/*/logs.tar.gz
-results/*/results/
-results/*/runs/
-results/OLD
+results
 *parquet
+!results/**/tree.txt
+!results/**/publish.py
 
 *egg-info/
 .vscode/
