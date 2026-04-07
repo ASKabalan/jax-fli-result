@@ -15,7 +15,7 @@ def render_lightcone_form(defaults: dict | None = None, prefix: str = "") -> dic
         with c1:
             nb_shells = st.number_input("nb_shells", min_value=1, value=defaults.get("nb_shells", 10), key=f"{prefix}nb_shells")
         with c2:
-            halo_fraction = st.number_input("halo_fraction", min_value=1, value=defaults.get("halo_fraction", 8), key=f"{prefix}halo_fraction")
+            halo_multiplier = st.number_input("halo_multiplier", min_value=0.0, value=defaults.get("halo_multiplier", 0.5), step=0.1, format="%.2f", key=f"{prefix}halo_multiplier")
 
         st.write("**Observer position**")
         oc1, oc2, oc3 = st.columns(3)
@@ -46,7 +46,7 @@ def render_lightcone_form(defaults: dict | None = None, prefix: str = "") -> dic
 
         return {
             "nb_shells": nb_shells,
-            "halo_fraction": halo_fraction,
+            "halo_multiplier": halo_multiplier,
             "observer_position": [ox, oy, oz],
             "ts": ts,
             "ts_near": ts_near,

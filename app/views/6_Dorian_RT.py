@@ -10,7 +10,6 @@ from app.components.slurm_form import render_slurm_form
 from app.components.lensing_form import render_lensing_form
 from app.components.command_builder import build_command
 
-st.set_page_config(page_title="Dorian RT", layout="wide")
 inject_custom_css()
 st.title("Dorian RT")
 

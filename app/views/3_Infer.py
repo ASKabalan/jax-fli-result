@@ -14,7 +14,6 @@ from app.components.lightcone_form import render_lightcone_form
 from app.components.stepping_plot import render_stepping_plot
 from app.components.command_builder import build_command
 
-st.set_page_config(page_title="Infer", layout="wide")
 inject_custom_css()
 st.title("Infer")
 

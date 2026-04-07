@@ -1,7 +1,14 @@
-"""Stepping plot component — visualizes simulation time-stepping geometry."""
+"""Stepping plot component — visualises simulation time-stepping geometry."""
 from __future__ import annotations
 
+from threading import RLock
+
 import streamlit as st
+
+# RLock for any future matplotlib usage in this module; plotly itself is thread-safe.
+_plt_lock = RLock()
+
+_PLOT_KEY = "stepping_plot_fig"
 
 
 @st.cache_resource
@@ -31,6 +38,7 @@ def _compute_stepping(t0: float, t1: float, nb_steps: int, nb_shells: int, max_b
 def render_stepping_plot(sim_params: dict, lightcone_params: dict, box_sizes: list[float]) -> None:
     """Render an interactive stepping plot in the current Streamlit container."""
     import plotly.graph_objects as go
+    import numpy as np
 
     st.subheader("Simulation Stepping Plot")
 
@@ -44,19 +52,15 @@ def render_stepping_plot(sim_params: dict, lightcone_params: dict, box_sizes: li
 
     if st.button("Compute Stepping Plot", key="compute_stepping"):
         try:
-            import numpy as np
-
             jc, _ = _load_jax_modules()
             steps = _compute_stepping(t0, t1, nb_steps, nb_shells, max_box_size)
 
             a_values = np.array(steps)
-            distances = jc.background.radial_comoving_distance(jc.Planck18(), a_values)
-            distances = np.array(distances)
-            step_indices = list(range(len(distances)))
+            distances = np.array(jc.background.radial_comoving_distance(jc.Planck18(), a_values))
 
             fig = go.Figure()
             fig.add_trace(go.Scatter(
-                x=step_indices,
+                x=list(range(len(distances))),
                 y=distances,
                 mode="lines+markers",
                 marker=dict(size=5),
@@ -77,8 +81,14 @@ def render_stepping_plot(sim_params: dict, lightcone_params: dict, box_sizes: li
                 margin=dict(l=40, r=20, t=40, b=40),
                 height=550,
             )
-            st.plotly_chart(fig, use_container_width=True)
+            # Persist figure so it survives reruns.
+            st.session_state[_PLOT_KEY] = fig
         except Exception as e:
             st.error(f"Failed to compute stepping plot: {e}")
+
+    # Display persisted figure (or prompt).
+    fig_cached = st.session_state.get(_PLOT_KEY)
+    if fig_cached is not None:
+        st.plotly_chart(fig_cached, use_container_width=True)
     else:
-        st.info("Click 'Compute Stepping Plot' to generate the visualization.")
+        st.info("Click **Compute Stepping Plot** to generate the visualisation.")

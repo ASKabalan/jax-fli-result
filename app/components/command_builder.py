@@ -1,6 +1,8 @@
 """Build the CLI command string from collected parameters."""
 from __future__ import annotations
 
+from jax_fli.scripts.parser import DEFAULT_NAME_TEMPLATE
+
 
 # Per-subcommand argument specs: (flag, type, default)
 # type is one of: str, int, float, bool, list, list_str, optional_int, optional_str
@@ -25,7 +27,7 @@ _SLURM_SPEC = [
 
 _SIM_SPEC = [
     ("lpt-order", int, 2),
-    ("t0", float, 0.1),
+    ("t0", float, 0.001),
     ("t1", float, 1.0),
     ("nb-steps", int, 30),
     ("interp", str, "none"),
@@ -33,16 +35,20 @@ _SIM_SPEC = [
     ("paint-nside", "optional_int", None),
     ("kernel-width-arcmin", "optional_float", None),
     ("enable-x64", bool, False),
+    ("dealiased", bool, False),
+    ("exact-growth", bool, False),
+    ("gradient-order", int, 1),
+    ("laplace-fd", bool, False),
 ]
 
 _COSMO_SPEC = [
     ("h", float, 0.6774),
-    ("omega-b", float, 0.0486),
-    ("omega-k", float, 0.0),
+    ("Omega-b", float, 0.0486),
+    ("Omega-k", float, 0.0),
     ("w0", float, -1.0),
     ("wa", float, 0.0),
     ("n-s", float, 0.9667),
-    ("omega-nu", float, 0.0),
+    ("Omega-nu", float, 0.0),
 ]
 
 _LENSING_SPEC = [
@@ -54,7 +60,7 @@ _LENSING_SPEC = [
 
 _LIGHTCONE_SPEC = [
     ("nb-shells", int, 10),
-    ("halo-fraction", int, 8),
+    ("halo-multiplier", float, 0.5),
     ("observer-position", list, [0.5, 0.5, 0.5]),
     ("ts", "optional_list", None),
     ("ts-near", "optional_list", None),
@@ -65,12 +71,22 @@ _LIGHTCONE_SPEC = [
 
 
 def _to_param_key(flag: str) -> str:
-    """Convert CLI flag name to Python parameter key: 'gpus-per-node' -> 'gpus_per_node'."""
-    return flag.replace("-", "_")
+    """Convert CLI flag name to Python parameter key: 'Omega-b' -> 'omega_b'.
+
+    Lowercases the flag name so that both 'Omega-b' and 'omega-b' map to
+    the same dict key 'omega_b', keeping the GUI param dicts stable.
+    """
+    return flag.lower().replace("-", "_")
 
 
-def build_command(subcommand: str, params: dict) -> str:
-    """Build a `fli-launcher <subcommand> ...` command string."""
+def build_command(subcommand: str, params: dict, include_defaults: bool = False) -> str:
+    """Build a `fli-launcher <subcommand> ...` command string.
+
+    Parameters
+    ----------
+    include_defaults : bool
+        When True, emit arguments even when they match the spec default.
+    """
     parts = ["fli-launcher", subcommand]
 
     specs = _get_specs_for(subcommand)
@@ -90,7 +106,7 @@ def build_command(subcommand: str, params: dict) -> str:
                 else:
                     parts.extend([f"--{flag}", str(value)])
         elif typ == list:
-            if value is not None and value != default:
+            if value is not None and (include_defaults or value != default):
                 parts.append(f"--{flag}")
                 parts.extend(str(v) for v in value)
         elif typ == "list_str":
@@ -99,7 +115,7 @@ def build_command(subcommand: str, params: dict) -> str:
                 parts.append(f"--{flag}")
                 parts.extend(str(v) for v in value)
         elif typ in (int, float, str):
-            if value is not None and value != default:
+            if value is not None and (include_defaults or value != default):
                 parts.extend([f"--{flag}", str(value)])
 
     return " ".join(parts)
@@ -110,6 +126,7 @@ def _get_specs_for(subcommand: str) -> list:
     specs = {
         "simulate": _SLURM_SPEC + _SIM_SPEC + _COSMO_SPEC + _LENSING_SPEC + _LIGHTCONE_SPEC + [
             ("output-dir", str, "results/cosmology_runs"),
+            ("name-template", str, DEFAULT_NAME_TEMPLATE),
             ("simulation-type", str, "nbody"),
             # Output target (mutually exclusive — only one emitted)
             ("nside", "optional_int", None),
@@ -118,7 +135,7 @@ def _get_specs_for(subcommand: str) -> list:
             ("density", bool, False),
             ("mesh-size", list, [64, 64, 64, 32, 32, 32]),
             ("box-size", list, [1000.0, 1000.0, 1000.0]),
-            ("omega-c", "list_str", []),
+            ("Omega-c", "list_str", []),
             ("sigma8", "list_str", []),
             ("seed", "list_str", []),
             ("shell-spacing", str, "comoving"),
@@ -137,7 +154,7 @@ def _get_specs_for(subcommand: str) -> list:
             ("density", bool, False),
             ("mesh-size", list, [64, 64, 64, 32, 32, 32]),
             ("box-size", list, [500.0, 500.0, 500.0, 1000.0, 1000.0, 1000.0]),
-            ("omega-c", "list_str", []),
+            ("Omega-c", "list_str", []),
             ("sigma8", "list_str", []),
             ("seed", "list_str", []),
             ("shell-spacing", str, "comoving"),
