@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "CLI and GUI launcher for jax-fli simulation jobs"
 requires-python = ">=3.10"
 dependencies = [
-    "jax-fli[catalog,benchmark] @ git+https://github.com/ASKabalan/jax-fli@inference-validation",
+    "jax-fli[catalog,benchmark] @ git+https://github.com/ASKabalan/jax-fli",
     "streamlit>=1.30",
     "matplotlib>=3.0",
     "plotly>=5.0",
@@ -16,13 +16,13 @@ dependencies = [
 
 [project.optional-dependencies]
 raytrace = [
-    "jax-fli[raytrace] @ git+https://github.com/ASKabalan/jax-fli@inference-validation",
+    "jax-fli[raytrace] @ git+https://github.com/ASKabalan/jax-fli",
 ]
 sampling = [
-    "jax-fli[sampling] @ git+https://github.com/ASKabalan/jax-fli@inference-validation",
+    "jax-fli[sampling] @ git+https://github.com/ASKabalan/jax-fli",
 ]
 plot = [
-    "jax-fli[plot] @ git+https://github.com/ASKabalan/jax-fli@inference-validation",
+    "jax-fli[plot] @ git+https://github.com/ASKabalan/jax-fli",
 ]
 
 [tool.setuptools.packages.find]
