@@ -25,8 +25,5 @@ plot = [
     "jax-fli[plot] @ git+https://github.com/ASKabalan/jax-fli@inference-validation",
 ]
 
-[project.scripts]
-fli-launcher = "launcher.main:main"
-
 [tool.setuptools.packages.find]
-include = ["launcher*", "app*"]
+include = ["app*"]
