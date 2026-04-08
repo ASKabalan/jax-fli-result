@@ -39,6 +39,7 @@ _SIM_SPEC = [
     ("exact-growth", bool, False),
     ("gradient-order", int, 1),
     ("laplace-fd", bool, False),
+    ("time-stepping", str, "a"),
 ]
 
 _COSMO_SPEC = [

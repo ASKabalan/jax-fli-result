@@ -20,7 +20,7 @@ def _load_jax_modules():
 
 
 @st.cache_data
-def _compute_stepping(t0: float, t1: float, nb_steps: int, nb_shells: int, max_box_size: float):
+def _compute_stepping(t0: float, t1: float, nb_steps: int, nb_shells: int, max_box_size: float, time_stepping: str , min_width: float) -> list[float]:
     """Compute stepping data (cached on parameters)."""
     jc, simulation_stepping = _load_jax_modules()
     import jax.numpy as jnp
@@ -30,12 +30,13 @@ def _compute_stepping(t0: float, t1: float, nb_steps: int, nb_shells: int, max_b
         cosmo, t0, t1, nb_steps,
         nb_shells=nb_shells,
         max_comoving_distance=max_box_size,
-        time_stepping="log_a",
+        time_stepping=time_stepping,
+        min_width=min_width,
     )
     return jnp.asarray(result).tolist()
 
 
-def render_stepping_plot(sim_params: dict, lightcone_params: dict, box_sizes: list[float]) -> None:
+def render_stepping_plot(sim_params: dict, lightcone_params: dict, box_sizes: list[float], observer_position: list[float], time_stepping: str, min_width: float) -> None:
     """Render an interactive stepping plot in the current Streamlit container."""
     import plotly.graph_objects as go
     import numpy as np
@@ -46,14 +47,19 @@ def render_stepping_plot(sim_params: dict, lightcone_params: dict, box_sizes: li
     t1 = sim_params.get("t1", 1.0)
     nb_steps = sim_params.get("nb_steps", 30)
     nb_shells = lightcone_params.get("nb_shells", 10)
-    max_box_size = max(box_sizes) if box_sizes else 1000.0
+
+    box = np.asarray(box_sizes)
+    observer_position = np.asarray(observer_position)
+    factors = np.clip(observer_position, 0.0, 1.0)
+    factors = 1.0 + 2.0 * np.minimum(factors, 1.0 - factors)
+    max_box_size =  np.min(box / factors)
 
     st.caption(f"t0={t0}, t1={t1}, steps={nb_steps}, shells={nb_shells}, max_box={max_box_size}")
 
     if st.button("Compute Stepping Plot", key="compute_stepping"):
         try:
             jc, _ = _load_jax_modules()
-            steps = _compute_stepping(t0, t1, nb_steps, nb_shells, max_box_size)
+            steps = _compute_stepping(t0, t1, nb_steps, nb_shells, max_box_size, time_stepping, min_width)
 
             a_values = np.array(steps)
             distances = np.array(jc.background.radial_comoving_distance(jc.Planck18(), a_values))

@@ -129,11 +129,14 @@ with c2:
         drift_on_lightcone = st.checkbox(
             "drift on lightcone", value=True, key="sim_drift_on_lightcone",
         )
-        shell_spacing = st.selectbox(
+        _SHELL_LABELS = ["r (comoving distance)", "V (equal volume r³)", "a (scale factors)", "D (growth)"]
+        _SHELL_KEYS   = ["comoving", "equal_vol", "a", "growth"]
+        _shell_label = st.selectbox(
             "shell_spacing",
-            ["comoving", "equal_vol", "a", "growth"],
+            _SHELL_LABELS,
             key="sim_shell_spacing",
         )
+        shell_spacing = _SHELL_KEYS[_SHELL_LABELS.index(_shell_label)]
 
         # Solver — human-readable labels, disabled for LPT
         _SOLVER_LABELS = ["Kick-Drift-Kick", "Drift-Kick-Drift", "BullFrog"]
@@ -146,8 +149,22 @@ with c2:
             help="Disabled for LPT — no N-Body stepping.",
         )
         solver = _SOLVER_KEYS[_SOLVER_LABELS.index(_solver_label)]
+
+        # time_stepping — separate from shell_spacing; BullFrog recommends "D (growth)"
+        _TS_LABELS = ["a (scale factors)", "D (growth)", "log_a"]
+        _TS_KEYS   = ["a", "D", "log_a"]
+        _ts_default_index = 1 if solver == "bf" else 0
+        _ts_label = st.selectbox(
+            "time_stepping",
+            _TS_LABELS,
+            index=_ts_default_index,
+            disabled=(simulation_type == "lpt"),
+            key="sim_time_stepping",
+            help="Time variable used for integrator stepping. Disabled for LPT.",
+        )
+        time_stepping = _TS_KEYS[_TS_LABELS.index(_ts_label)]
         if solver == "bf":
-            st.info("Growth factor spacing is recommended with BullFrog.")
+            st.info("BullFrog works best with `time_stepping = D (growth)`.")
 
         st.divider()
 
@@ -489,7 +506,8 @@ _lc_for_plot  = {"nb_shells": nb_shells}
 
 with top_right:
     if simulation_type in ("nbody", "lensing"):
-        render_stepping_plot(_sim_for_plot, _lc_for_plot, box_size)
+        observer_position = [obs_x, obs_y, obs_z]
+        render_stepping_plot(_sim_for_plot, _lc_for_plot, box_size, observer_position, time_stepping=time_stepping, min_width=min_width)
 
 # ── Build command ─────────────────────────────────────────────────────────────
 params = {
@@ -548,6 +566,7 @@ params = {
     "field_size":         field_size,
     "density":            density_flag,
     "shell_spacing":      shell_spacing,
+    "time_stepping":      time_stepping,
     "solver":             solver,
     "mesh_size":          mesh_size,
     "box_size":           box_size,

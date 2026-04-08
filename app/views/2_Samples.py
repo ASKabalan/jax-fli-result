@@ -65,7 +65,7 @@ with bot4:
             bz = st.number_input("BZ", value=250.0, key="samp_bz")
 
 with top_right:
-    render_stepping_plot(sim, lightcone, [bx, by, bz])
+    render_stepping_plot(sim, lightcone, [bx, by, bz], [obs_x, obs_y, obs_z])
 
 # Build command
 params = {**slurm, **sim, **lensing, **lightcone}

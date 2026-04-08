@@ -393,8 +393,16 @@ with st.container(border=True):
         map_vmax = st.number_input("vmax", value=1.0, format="%.4f",
                                    key="analysis_map_vmax", disabled=not map_use_vmax)
 
-    map_dpi = st.number_input("Render DPI", min_value=50, max_value=300, value=100,
-                              step=25, key="analysis_map_dpi")
+    tc1, tc2 = st.columns([3, 1])
+    with tc1:
+        map_title_template = st.text_input(
+            "Panel title template", value="%l% - %i%",
+            key="analysis_map_title_template",
+            help="%l% = Label | %i% = Index | %r% = comoving distance  |  %z% = redshift  |  %a% = scale factor"
+        )
+    with tc2:
+        map_dpi = st.number_input("Render DPI", min_value=50, max_value=300, value=100,
+                                  step=25, key="analysis_map_dpi")
     plot_btn = st.button("Plot", key="analysis_plot_btn", type="primary")
 
 # Map display — only renders on Plot click; result persists as PNG bytes.
@@ -417,7 +425,11 @@ with st.container(border=True):
                                              figsize=(map_fig_w * map_ncols,
                                                       map_fig_h * nrows))
             try:
-                titles = [f"{selected_entry['label']} - {i}" for i in range(n_maps)]
+                titles = []
+                for i in range(n_maps):
+                    t = map_title_template.replace("%l%", selected_entry["label"]).replace("%i%", str(i))
+                    t = _make_title(t, plot_field, i)
+                    titles.append(t)
                 plot_field.plot(ax=axes_map,
                            titles=titles,
                            border_linewidth=map_border,
@@ -465,6 +477,8 @@ if meta_attrs:
                     ax_m.axhline(float(arr), color="C0")
                 else:
                     ax_m.plot(arr, marker="o", markersize=3)
+                    ax_m.set_xticks(np.arange(len(arr)))
+                    ax_m.grid(True, linestyle="--", alpha=0.7)
                 ax_m.set_title(lbl, fontsize=10)
                 ax_m.set_xlabel("Shell" if arr.ndim > 0 else "")
                 ax_m.set_ylabel(unit, fontsize=9)
