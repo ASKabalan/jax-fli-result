@@ -1,0 +1,453 @@
+"""Analysis page UI: file loading, field map visualization, and spectra routing.
+
+This module owns all session-state management and top-level UI scaffolding.
+Actual analysis logic is delegated to the analysis-specific modules.
+"""
+from __future__ import annotations
+
+from math import ceil
+from pathlib import Path
+
+import matplotlib.pyplot as plt
+import numpy as np
+import streamlit as st
+
+from .utils import (
+    _DENSITY_3D, _FLAT_TYPES, _KAPPA_TYPES, _PARTICLE_TYPE, _SPHERICAL_TYPES,
+    _fig_to_png, _make_title, _plt_lock,
+)
+
+# ---------------------------------------------------------------------------
+# Session state constants
+# ---------------------------------------------------------------------------
+
+CATALOGS_KEY = "analysis_catalogs"
+
+
+def _init_session_state():
+    if CATALOGS_KEY not in st.session_state:
+        st.session_state[CATALOGS_KEY] = []
+    if "analysis_nz_point_sources" not in st.session_state:
+        st.session_state["analysis_nz_point_sources"] = [0.01]
+
+
+# ---------------------------------------------------------------------------
+# Session state callbacks
+# ---------------------------------------------------------------------------
+
+def _load_catalog(path: str):
+    import jax_fli as jfli
+    path = path.strip()
+    if not path:
+        return
+    for entry in st.session_state[CATALOGS_KEY]:
+        if entry["path"] == path:
+            st.toast(f"Already loaded: {Path(path).name}")
+            return
+    try:
+        catalog    = jfli.io.Catalog.from_parquet(path)
+        field_type = type(catalog.field[0]).__name__
+        st.session_state[CATALOGS_KEY].append({
+            "path":       path,
+            "label":      Path(path).name,
+            "catalog":    catalog,
+            "field_type": field_type,
+            "active":     True,
+        })
+    except Exception as e:
+        st.error(f"Failed to load {path}: {e}")
+
+
+def _toggle_active(index: int, key: str):
+    st.session_state[CATALOGS_KEY][index]["active"] = st.session_state[key]
+
+
+def _remove_catalog(index: int):
+    st.session_state[CATALOGS_KEY].pop(index)
+
+
+def _move_up(index: int):
+    entries = st.session_state[CATALOGS_KEY]
+    entries[index - 1], entries[index] = entries[index], entries[index - 1]
+
+
+def _move_down(index: int):
+    entries = st.session_state[CATALOGS_KEY]
+    entries[index], entries[index + 1] = entries[index + 1], entries[index]
+
+
+def _update_label(index: int, key: str):
+    st.session_state[CATALOGS_KEY][index]["label"] = st.session_state[key]
+
+
+# ---------------------------------------------------------------------------
+# Section 1: File Loading
+# ---------------------------------------------------------------------------
+
+def _render_file_loading(entries: list[dict]) -> None:
+    with st.container(border=True):
+        st.subheader("Load Parquet Files")
+        col_path, col_btn = st.columns([5, 1])
+        with col_path:
+            new_path = st.text_input("Parquet file path", key="analysis_new_path",
+                                     placeholder="/path/to/file.parquet",
+                                     label_visibility="collapsed")
+        with col_btn:
+            st.button("Load", key="analysis_load_btn",
+                      on_click=_load_catalog, args=(new_path,))
+
+        for i, entry in enumerate(entries):
+            cb, cl, ct, cu, cd, cr = st.columns([0.5, 4, 2, 0.5, 0.5, 0.5])
+            with cb:
+                st.checkbox(f"**{'REF' if i == 0 else f'#{i+1}'}**",
+                            value=entry.get("active", True),
+                            key=f"analysis_active_{i}",
+                            on_change=_toggle_active, args=(i, f"analysis_active_{i}"))
+            with cl:
+                st.text_input("Label", value=entry["label"],
+                              key=f"analysis_label_{i}",
+                              on_change=_update_label, args=(i, f"analysis_label_{i}"),
+                              label_visibility="collapsed")
+            with ct:
+                st.caption(entry["field_type"])
+            with cu:
+                st.button("\u2191", key=f"analysis_up_{i}", on_click=_move_up,
+                          args=(i,), disabled=(i == 0))
+            with cd:
+                st.button("\u2193", key=f"analysis_down_{i}", on_click=_move_down,
+                          args=(i,), disabled=(i == len(entries) - 1))
+            with cr:
+                st.button("\u2716", key=f"analysis_rm_{i}",
+                          on_click=_remove_catalog, args=(i,))
+
+        if not entries:
+            st.info("No files loaded. Enter a parquet file path and click Load.")
+
+
+# ---------------------------------------------------------------------------
+# Section 2: Field Map Visualization
+# ---------------------------------------------------------------------------
+
+def _render_field_map_section(entries: list[dict]) -> None:
+    st.divider()
+    st.subheader("Visualization")
+
+    file_labels  = [f"[{'REF' if i == 0 else i+1}] {e['label']}" for i, e in enumerate(entries)]
+    selected_idx = st.selectbox("Select file to display", range(len(entries)),
+                                format_func=lambda i: file_labels[i],
+                                key="analysis_vis_select")
+
+    selected_entry  = entries[selected_idx]
+    field           = selected_entry["catalog"].field[0]
+    field_type_str  = selected_entry["field_type"]
+    _single         = not field.is_batched()
+
+    # Invalidate cached PNG when the selected file changes
+    _fkey = selected_entry["path"]
+    if st.session_state.get("_field_cache_path") != _fkey:
+        st.session_state.pop("analysis_field_png", None)
+        st.session_state["_field_cache_path"] = _fkey
+
+    with st.container(border=True):
+        st.markdown("**Field Map Settings**")
+        mc1, mc2, mc3, mc4, mc5 = st.columns(5)
+        with mc1:
+            map_index = st.text_input("Index (numpy-like)", value=":",
+                                      key="analysis_map_index", disabled=_single,
+                                      help="Greyed out when field has a single element.")
+            map_ncols = st.number_input("Columns", min_value=1, max_value=10, value=2,
+                                        key="analysis_map_ncols")
+            _proj_disabled = field_type_str in (_DENSITY_3D | _PARTICLE_TYPE)
+            map_projection = st.selectbox(
+                "Projection",
+                ["mollweide", "cart", "polar", "aitoff", "hammer", "lambert"],
+                key="analysis_map_proj", disabled=_proj_disabled)
+        with mc2:
+            map_cmap   = st.selectbox("Colormap",
+                                      ["magma", "viridis", "inferno", "plasma", "cividis",
+                                       "coolwarm", "RdBu_r", "hot", "bone", "gray"],
+                                      key="analysis_map_cmap")
+            map_border = st.number_input("Border width", min_value=0.0, max_value=5.0,
+                                         value=1.0, step=0.5, key="analysis_map_border",
+                                         disabled=_proj_disabled)
+        with mc3:
+            map_fig_w = st.number_input("Width/map", min_value=2.0, max_value=12.0,
+                                        value=4.0, step=0.5, key="analysis_map_fig_w")
+            map_fig_h = st.number_input("Height/map", min_value=2.0, max_value=12.0,
+                                        value=4.0, step=0.5, key="analysis_map_fig_h")
+        with mc4:
+            map_colorbar = st.checkbox("Colorbar", value=True, key="analysis_map_cbar")
+            map_ticks    = st.checkbox("Graticule", value=False, key="analysis_map_ticks",
+                                       disabled=_proj_disabled)
+        with mc5:
+            map_use_vmin = st.checkbox("Custom vmin", value=False, key="analysis_map_use_vmin")
+            map_vmin     = st.number_input("vmin", value=0.0, format="%.4f",
+                                           key="analysis_map_vmin", disabled=not map_use_vmin)
+            map_use_vmax = st.checkbox("Custom vmax", value=False, key="analysis_map_use_vmax")
+            map_vmax     = st.number_input("vmax", value=1.0, format="%.4f",
+                                           key="analysis_map_vmax", disabled=not map_use_vmax)
+            apply_fn     = st.text_input(
+                "Apply function", value="", key="analysis_map_apply_fn",
+                help="Optional numpy expression, e.g. 'np.log10(x + 1e-5)'. Use 'x' as variable.")
+
+        tc1, tc2 = st.columns([3, 1])
+        with tc1:
+            map_title_template = st.text_input(
+                "Panel title template", value="%l% - %i%",
+                key="analysis_map_title_template",
+                help="%l% = Label | %i% = Index | %r% = comoving distance  |  %z% = redshift  |  %a% = scale factor")
+        with tc2:
+            map_dpi = st.number_input("Render DPI", min_value=50, max_value=2000, value=100,
+                                      step=25, key="analysis_map_dpi")
+
+        # Type-specific expandable options
+        d_params = {}
+        p_params = {}
+        if field_type_str in _DENSITY_3D:
+            with st.expander("3D Plot Options"):
+                dc1, dc2, dc3 = st.columns(3)
+                with dc1:
+                    d_params["elev"]   = st.number_input("Elevation", value=40.0, step=5.0,
+                                                          key="analysis_d_elev")
+                    d_params["levels"] = st.number_input("Levels", min_value=4, max_value=256,
+                                                          value=64, key="analysis_d_levels")
+                with dc2:
+                    d_params["azim"]           = st.number_input("Azimuth", value=-30.0, step=5.0,
+                                                                  key="analysis_d_azim")
+                    d_params["project_slices"] = st.number_input("Project slices", min_value=1,
+                                                                   max_value=128, value=10,
+                                                                   key="analysis_d_project_slices")
+                with dc3:
+                    d_params["zoom"]  = st.number_input("Zoom", min_value=0.1, max_value=5.0,
+                                                         value=0.8, step=0.1, key="analysis_d_zoom")
+                    d_params["edges"] = st.checkbox("Edges", value=True, key="analysis_d_edges")
+
+                st.markdown("**Crop** (e.g. `:` or `10:50`)")
+                cc1, cc2, cc3 = st.columns(3)
+                with cc1:
+                    d_crop_x = st.text_input("Crop X", value=":", key="analysis_d_crop_x")
+                with cc2:
+                    d_crop_y = st.text_input("Crop Y", value=":", key="analysis_d_crop_y")
+                with cc3:
+                    d_crop_z = st.text_input("Crop Z", value=":", key="analysis_d_crop_z")
+
+                pc1, pc2 = st.columns([1, 1])
+                with pc1:
+                    d_params["do_project"] = st.checkbox("Project to 2D", value=False,
+                                                          key="analysis_d_do_project")
+                with pc2:
+                    d_params["nz_slices"] = st.number_input(
+                        "nz_slices", min_value=1, max_value=128, value=10,
+                        key="analysis_d_nz_slices", disabled=not d_params["do_project"])
+
+                for dim, raw in [("x", d_crop_x), ("y", d_crop_y), ("z", d_crop_z)]:
+                    try:
+                        d_params[f"crop_{dim}"] = eval(f"np.s_[{raw}]", {"np": np})
+                    except Exception:
+                        d_params[f"crop_{dim}"] = slice(None)
+                d_params["crop"] = (d_params.pop("crop_x"),
+                                    d_params.pop("crop_y"),
+                                    d_params.pop("crop_z"))
+
+        elif field_type_str in _PARTICLE_TYPE:
+            with st.expander("Particle Plot Options"):
+                pc1, pc2, pc3 = st.columns(3)
+                with pc1:
+                    p_params["thinning"] = st.number_input("Thinning", min_value=1,
+                                                            max_value=64, value=4,
+                                                            key="analysis_p_thinning")
+                    p_params["elev"]     = st.number_input("Elevation", value=40.0, step=5.0,
+                                                            key="analysis_p_elev")
+                with pc2:
+                    p_params["point_size"] = st.number_input("Point size", min_value=0.5,
+                                                               max_value=50.0, value=5.0, step=0.5,
+                                                               key="analysis_p_point_size")
+                    p_params["azim"]       = st.number_input("Azimuth", value=-30.0, step=5.0,
+                                                               key="analysis_p_azim")
+                with pc3:
+                    p_params["alpha"] = st.slider("Alpha", min_value=0.0, max_value=1.0,
+                                                   value=0.6, step=0.05, key="analysis_p_alpha")
+                    p_params["zoom"]  = st.number_input("Zoom", min_value=0.1, max_value=5.0,
+                                                         value=0.8, step=0.1, key="analysis_p_zoom")
+                pw1, pw2 = st.columns(2)
+                with pw1:
+                    weights_raw = st.text_input(
+                        "Weights", value="", key="analysis_p_weights",
+                        help="Leave empty for none, or enter: 'redshift', 'z', 'scale', 'a', 'comoving', 'r', or a float.")
+                with pw2:
+                    p_params["weights_title"] = st.text_input(
+                        "Weights title", value="", key="analysis_p_weights_title",
+                        help="Optional colorbar label.") or None
+                if not weights_raw:
+                    p_params["weights"] = None
+                else:
+                    try:
+                        p_params["weights"] = float(weights_raw)
+                    except ValueError:
+                        p_params["weights"] = weights_raw
+
+        plot_btn = st.button("Plot", key="analysis_plot_btn", type="primary")
+
+    with st.container(border=True):
+        st.markdown("**Field Map**")
+
+        if plot_btn:
+            # Index slicing
+            if _single:
+                plot_field = field
+            else:
+                try:
+                    idx        = eval(f"np.s_[{map_index}]", {"np": np})
+                    plot_field = field[idx]
+                except Exception as e:
+                    st.error(f"Invalid index '{map_index}': {e}")
+                    plot_field = field
+
+            # Apply function
+            if apply_fn.strip():
+                try:
+                    parsed_fn  = eval(f"lambda x: {apply_fn}", {"np": np})
+                    plot_field = plot_field.apply_fn(parsed_fn)
+                except Exception as e:
+                    st.error(f"Apply function error: {e}")
+
+            map_params = {
+                "ncols":          int(map_ncols),
+                "cmap":           map_cmap,
+                "fig_w":          float(map_fig_w),
+                "fig_h":          float(map_fig_h),
+                "colorbar":       map_colorbar,
+                "ticks":          map_ticks,
+                "vmin":           map_vmin if map_use_vmin else None,
+                "vmax":           map_vmax if map_use_vmax else None,
+                "border":         float(map_border),
+                "projection":     map_projection,
+                "dpi":            int(map_dpi),
+                "title_template": map_title_template,
+                "label":          selected_entry["label"],
+            }
+
+            png = None
+            if field_type_str in _DENSITY_3D:
+                from . import density_analysis
+                png = density_analysis.render_density_field_map(
+                    selected_entry, plot_field, map_params, d_params)
+            elif field_type_str in _PARTICLE_TYPE:
+                from . import density_analysis
+                png = density_analysis.render_particle_field_map(
+                    selected_entry, plot_field, map_params, p_params)
+            else:
+                # All 2D types: FlatDensity, FlatKappaField, SphericalDensity, SphericalKappaField
+                from . import flat_analysis
+                png = flat_analysis.render_field_map(selected_entry, plot_field, map_params)
+
+            if png is not None:
+                st.session_state["analysis_field_png"] = png
+            else:
+                st.error("Field map rendering failed — check the console for details.")
+
+        field_png = st.session_state.get("analysis_field_png")
+        if field_png:
+            st.image(field_png)
+            st.download_button("Download PNG", data=field_png,
+                               file_name="field_map.png", mime="image/png",
+                               key="save_field_dl")
+        else:
+            st.info("Adjust settings above, then click **Plot**.")
+
+    # Metadata mini-plots (fast, no heavy compute)
+    meta_attrs = [
+        (a, lbl, u)
+        for a, lbl, u in [
+            ("comoving_centers", "Comoving Centers", "Mpc/h"),
+            ("scale_factors",    "Scale Factors",    "a"),
+            ("z_sources",        "z Sources",        "z"),
+            ("density_width",    "Density Width",    "Mpc/h"),
+        ]
+        if getattr(field, a, None) is not None
+    ]
+    if meta_attrs:
+        cols = st.columns(len(meta_attrs))
+        for col, (attr, lbl, unit) in zip(cols, meta_attrs):
+            with col:
+                arr = np.asarray(getattr(field, attr))
+                with _plt_lock:
+                    fig_m, ax_m = plt.subplots(figsize=(4, 2.5))
+                    if arr.ndim == 0:
+                        ax_m.axhline(float(arr), color="C0")
+                    else:
+                        ax_m.plot(arr, marker="o", markersize=3)
+                        ax_m.set_xticks(np.arange(len(arr)))
+                        ax_m.grid(True, linestyle="--", alpha=0.7)
+                    ax_m.set_title(lbl, fontsize=10)
+                    ax_m.set_xlabel("Shell" if arr.ndim > 0 else "")
+                    ax_m.set_ylabel(unit, fontsize=9)
+                    ax_m.tick_params(labelsize=8)
+                    fig_m.tight_layout()
+                    st.pyplot(fig_m)
+                    plt.close(fig_m)
+
+    with st.expander("Field info"):
+        st.code(repr(field), language=None)
+
+
+# ---------------------------------------------------------------------------
+# Section 3: Power Spectra routing
+# ---------------------------------------------------------------------------
+
+def _render_spectra_section(active_entries: list[dict]) -> None:
+    st.divider()
+    st.subheader("Power Spectra")
+
+    ref_field_type = active_entries[0]["field_type"]
+    tab_cl, tab_pk = st.tabs(["Angular Cl", "3D P(k)"])
+
+    with tab_cl:
+        if ref_field_type in (_DENSITY_3D | _PARTICLE_TYPE):
+            msg = (
+                f"Angular Cl not supported for **{ref_field_type}**. "
+                "Use the **3D P(k)** tab for DensityField."
+                if ref_field_type in _DENSITY_3D
+                else f"Angular Cl not supported for **{ref_field_type}**."
+            )
+            st.error(msg)
+        elif ref_field_type in _FLAT_TYPES:
+            st.error(
+                f"Angular Cl is not supported for **{ref_field_type}** (flat types). "
+                "Use a spherical field type for Cl analysis."
+            )
+        elif ref_field_type in _KAPPA_TYPES:
+            from . import kappa_spherical_analysis
+            kappa_spherical_analysis.cl_tab(active_entries, ref_field_type)
+        else:
+            # SphericalDensity (and any other spherical density type)
+            from . import spherical_analysis
+            spherical_analysis.cl_tab(active_entries, ref_field_type)
+
+    with tab_pk:
+        from . import density_analysis
+        density_analysis.pk_tab(active_entries, ref_field_type)
+
+
+# ---------------------------------------------------------------------------
+# Top-level entry point
+# ---------------------------------------------------------------------------
+
+def run() -> None:
+    """Render the full Analysis page. Called by the Streamlit entry point."""
+    _init_session_state()
+    entries = st.session_state[CATALOGS_KEY]
+
+    _render_file_loading(entries)
+
+    if not entries:
+        st.stop()
+
+    _render_field_map_section(entries)
+
+    active_entries = [e for e in entries if e.get("active", True)]
+    if not active_entries:
+        st.warning("No active entries selected.")
+        st.stop()
+
+    _render_spectra_section(active_entries)

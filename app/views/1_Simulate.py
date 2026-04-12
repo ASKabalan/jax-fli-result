@@ -127,7 +127,7 @@ with c2:
             "min_width", value=50.0, format="%.1f", key="sim_min_width",
         )
         drift_on_lightcone = st.checkbox(
-            "drift on lightcone", value=True, key="sim_drift_on_lightcone",
+            "drift on lightcone", value=False, key="sim_drift_on_lightcone",
         )
         _SHELL_LABELS = ["r (comoving distance)", "V (equal volume r³)", "a (scale factors)", "D (growth)"]
         _SHELL_KEYS   = ["comoving", "equal_vol", "a", "growth"]
@@ -270,6 +270,7 @@ with c1:
                     value="",
                     placeholder="$SLURM_SCRIPT (empty = omit)",
                     key="sim_slurm_script",
+                    help="Path to a slurm script that help set up the environment and run the command. get inspired by https://gist.github.com/ASKabalan/721209322df82dc1ea2dd2d25af3b7ea#file-slurm-gists",
                 )
                 slurm_script = _raw_script.strip() or None
 
@@ -393,11 +394,18 @@ with c3:
             )
             if scheme == "rbf_neighbor":
                 with st.expander("RBF parameters"):
-                    kernel_width_arcmin = st.number_input(
-                        "kernel_width_arcmin (arcmin)", value=5.0,
-                        min_value=0.01, format="%.2f",
-                        key="sim_kernel_width_arcmin",
+                    st.write("**kernel_width_arcmin**")
+                    activate_rbf = st.checkbox(
+                        "Activate RBF parameters",
+                        value=False,
+                        key="sim_activate_rbf",
                     )
+                    if activate_rbf:
+                        kernel_width_arcmin = st.number_input(
+                            "kernel_width_arcmin (arcmin)", value=5.0,
+                            min_value=0.01, format="%.2f",
+                            key="sim_kernel_width_arcmin",
+                        )
         elif output_target == "Flat sky":
             st.write("**Pixels (H × W)**")
             fp1, fp2 = st.columns(2)
@@ -580,8 +588,7 @@ if job_mode == "simulate":
     params["perf"]       = profile
     params["iterations"] = iterations if profile else None
 
-include_all = st.checkbox("Include default arguments", key="sim_include_defaults")
-cmd = build_command(job_mode, params, include_defaults=include_all)
+cmd = build_command(job_mode, params)
 
 # Fill the middle placeholder with the generated command
 with cmd_placeholder:

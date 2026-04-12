@@ -80,13 +80,15 @@ def _to_param_key(flag: str) -> str:
     return flag.lower().replace("-", "_")
 
 
-def build_command(subcommand: str, params: dict, include_defaults: bool = False) -> str:
+def build_command(subcommand: str, params: dict) -> str:
     """Build a `fli-launcher <subcommand> ...` command string.
 
     Parameters
     ----------
-    include_defaults : bool
-        When True, emit arguments even when they match the spec default.
+    subcommand : str
+        The subcommand for which to build the command.
+    params : dict
+        A dictionary of parameter values.
     """
     parts = ["fli-launcher", subcommand]
 
@@ -107,7 +109,7 @@ def build_command(subcommand: str, params: dict, include_defaults: bool = False)
                 else:
                     parts.extend([f"--{flag}", str(value)])
         elif typ == list:
-            if value is not None and (include_defaults or value != default):
+            if value is not None:
                 parts.append(f"--{flag}")
                 parts.extend(str(v) for v in value)
         elif typ == "list_str":
@@ -116,7 +118,7 @@ def build_command(subcommand: str, params: dict, include_defaults: bool = False)
                 parts.append(f"--{flag}")
                 parts.extend(str(v) for v in value)
         elif typ in (int, float, str):
-            if value is not None and (include_defaults or value != default):
+            if value is not None:
                 parts.extend([f"--{flag}", str(value)])
 
     return " ".join(parts)
