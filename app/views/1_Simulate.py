@@ -1,36 +1,28 @@
-"""Simulate page — merged `fli-launcher simulate` (per job) and `fli-launcher grid` (single job)."""
+"""Simulate page — `fli-launcher simulate` (per job)."""
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 import streamlit as st
 
-from app.components.styled_container import inject_custom_css
+from app.components.command_builder import DEFAULT_NAME_TEMPLATE, build_command
 from app.components.dynamic_list import render_dynamic_list, render_dynamic_triple_list
 from app.components.lensing_form import render_lensing_form
 from app.components.stepping_plot import render_stepping_plot
-from app.components.command_builder import build_command, DEFAULT_NAME_TEMPLATE
+from app.components.styled_container import inject_custom_css
 
 inject_custom_css()
 st.title("Simulate")
 
-# ── TOP ROW: description + job mode toggle (left) │ stepping plot (right) ───
+# ── TOP ROW: description (left) │ stepping plot (right) ──────────────────────
 top_left, top_right = st.columns([1, 1])
 
 with top_left:
     st.markdown(
         "Submit N-Body cosmological simulation jobs to the cluster.\n\n"
-        "- **Per job (simulate)**: one `fli-launcher simulate` job per parameter combination — supports profiling.\n"
-        "- **Single job (grid)**: one `fli-launcher grid` job that loops over all combinations internally."
+        "One `fli-launcher simulate` job per parameter combination — supports profiling."
     )
-    _job_mode_label = st.radio(
-        "Grid mode",
-        ["Per job (simulate)", "Single job (grid)"],
-        horizontal=True,
-        label_visibility="collapsed",
-        key="sim_job_mode",
-    )
-    job_mode = "simulate" if _job_mode_label == "Per job (simulate)" else "grid"
 
 # ── MIDDLE: placeholder for generated command (visually between top and bottom)
 cmd_placeholder = st.empty()
@@ -59,7 +51,9 @@ with c2:
             label_visibility="collapsed",
             key="sim_simulation_type_radio",
         )
-        simulation_type = {"LPT": "lpt", "PM": "nbody", "Lensing": "lensing"}[_sim_type_label]
+        simulation_type = {"LPT": "lpt", "PM": "nbody", "Lensing": "lensing"}[
+            _sim_type_label
+        ]
         nbody_active = simulation_type in ("nbody", "lensing")
 
         st.divider()
@@ -73,7 +67,7 @@ with c2:
         )
 
         nb_shells = 10  # fallback default
-        nb_steps = 30   # fallback default (redefined below per mode)
+        nb_steps = 30  # fallback default (redefined below per mode)
         ts = ts_near = ts_far = density_widths = None
         nb_shells_for_cmd = None
 
@@ -81,13 +75,17 @@ with c2:
             snap_col, step_col = st.columns(2)
             with snap_col:
                 nb_shells = st.number_input(
-                    "nb_shells", min_value=1, value=10,
+                    "nb_shells",
+                    min_value=1,
+                    value=10,
                     key="sim_nb_shells",
                     help="Number of lightcone snapshot shells",
                 )
             with step_col:
                 nb_steps = st.number_input(
-                    "Time steps", min_value=1, value=30,
+                    "Time steps",
+                    min_value=1,
+                    value=30,
                     disabled=not nbody_active,
                     key="sim_nb_steps",
                     help="nb_steps: NBody timesteps. Not used for LPT.",
@@ -96,41 +94,75 @@ with c2:
 
         elif snapshot_mode == "Specific times":
             nb_steps = st.number_input(
-                "Time steps", min_value=1, value=30,
+                "Time steps",
+                min_value=1,
+                value=30,
                 disabled=not nbody_active,
                 key="sim_nb_steps",
                 help="nb_steps: NBody timesteps. Not used for LPT.",
             )
             ts = render_dynamic_list("ts", "sim_ts", [], cast_fn=float) or None
-            st.caption("density_widths: one value for all shells, one per shell, or empty (auto-computed from ts)")
-            density_widths = render_dynamic_list(
-                "density_widths", "sim_density_widths", [], cast_fn=float,
-            ) or None
+            st.caption(
+                "density_widths: one value for all shells, one per shell, or empty (auto-computed from ts)"
+            )
+            density_widths = (
+                render_dynamic_list(
+                    "density_widths",
+                    "sim_density_widths",
+                    [],
+                    cast_fn=float,
+                )
+                or None
+            )
 
         else:  # Near and Far lists
             nb_steps = st.number_input(
-                "Time steps", min_value=1, value=30,
+                "Time steps",
+                min_value=1,
+                value=30,
                 disabled=not nbody_active,
                 key="sim_nb_steps",
                 help="nb_steps: NBody timesteps. Not used for LPT.",
             )
-            ts_near = render_dynamic_list("ts_near", "sim_ts_near", [], cast_fn=float) or None
-            ts_far  = render_dynamic_list("ts_far",  "sim_ts_far",  [], cast_fn=float) or None
-            st.caption("density_widths: one value for all shells, one per shell, or empty (auto-computed from ts)")
-            density_widths = render_dynamic_list(
-                "density_widths", "sim_density_widths", [], cast_fn=float,
-            ) or None
+            ts_near = (
+                render_dynamic_list("ts_near", "sim_ts_near", [], cast_fn=float) or None
+            )
+            ts_far = (
+                render_dynamic_list("ts_far", "sim_ts_far", [], cast_fn=float) or None
+            )
+            st.caption(
+                "density_widths: one value for all shells, one per shell, or empty (auto-computed from ts)"
+            )
+            density_widths = (
+                render_dynamic_list(
+                    "density_widths",
+                    "sim_density_widths",
+                    [],
+                    cast_fn=float,
+                )
+                or None
+            )
 
         st.divider()
 
         min_width = st.number_input(
-            "min_width", value=50.0, format="%.1f", key="sim_min_width",
+            "min_width",
+            value=50.0,
+            format="%.1f",
+            key="sim_min_width",
         )
         drift_on_lightcone = st.checkbox(
-            "drift on lightcone", value=False, key="sim_drift_on_lightcone",
+            "drift on lightcone",
+            value=False,
+            key="sim_drift_on_lightcone",
         )
-        _SHELL_LABELS = ["r (comoving distance)", "V (equal volume r³)", "a (scale factors)", "D (growth)"]
-        _SHELL_KEYS   = ["comoving", "equal_vol", "a", "growth"]
+        _SHELL_LABELS = [
+            "r (comoving distance)",
+            "V (equal volume r³)",
+            "a (scale factors)",
+            "D (growth)",
+        ]
+        _SHELL_KEYS = ["comoving", "equal_vol", "a", "growth"]
         _shell_label = st.selectbox(
             "shell_spacing",
             _SHELL_LABELS,
@@ -140,7 +172,7 @@ with c2:
 
         # Solver — human-readable labels, disabled for LPT
         _SOLVER_LABELS = ["Kick-Drift-Kick", "Drift-Kick-Drift", "BullFrog"]
-        _SOLVER_KEYS   = ["kdk", "dkd", "bf"]
+        _SOLVER_KEYS = ["kdk", "dkd", "bf"]
         _solver_label = st.selectbox(
             "PM solver",
             _SOLVER_LABELS,
@@ -152,7 +184,7 @@ with c2:
 
         # time_stepping — separate from shell_spacing; BullFrog recommends "D (growth)"
         _TS_LABELS = ["a (scale factors)", "D (growth)", "log_a"]
-        _TS_KEYS   = ["a", "D", "log_a"]
+        _TS_KEYS = ["a", "D", "log_a"]
         _ts_default_index = 1 if solver == "bf" else 0
         _ts_label = st.selectbox(
             "time_stepping",
@@ -172,19 +204,28 @@ with c2:
         p1, p2 = st.columns(2)
         with p1:
             lpt_order = st.number_input(
-                "LPT order", min_value=1, max_value=3, value=2,
+                "LPT order",
+                min_value=1,
+                max_value=3,
+                value=2,
                 key="sim_lpt_order",
             )
         with p2:
             t0 = st.number_input(
-                "t0", min_value=0.001, value=0.001, format="%.4f",
+                "t0",
+                min_value=0.001,
+                value=0.001,
+                format="%.4f",
                 key="sim_t0",
             )
 
         p3, p4 = st.columns(2)
         with p3:
             t1 = st.number_input(
-                "t1", min_value=0.001, value=1.0, format="%.4f",
+                "t1",
+                min_value=0.001,
+                value=1.0,
+                format="%.4f",
                 disabled=not nbody_active,
                 key="sim_t1",
             )
@@ -202,7 +243,9 @@ with c2:
         with la_col:
             dealiased = st.checkbox("dealiased", value=False, key="sim_dealiased")
         with eg_col:
-            exact_growth = st.checkbox("exact_growth", value=False, key="sim_exact_growth")
+            exact_growth = st.checkbox(
+                "exact_growth", value=False, key="sim_exact_growth"
+            )
 
         # Forces subsection (applies to solver and LPT)
         st.markdown("**Forces**")
@@ -211,7 +254,8 @@ with c2:
             laplace_fd = st.checkbox("laplace_fd", value=False, key="sim_laplace_fd")
         with go_col:
             gradient_order = st.selectbox(
-                "gradient_order", [1, 0],
+                "gradient_order",
+                [1, 0],
                 key="sim_gradient_order",
                 help="1 = finite-difference, 0 = exact ik",
             )
@@ -252,8 +296,9 @@ with c1:
         with cc:
             qos = st.text_input("QoS", value="qos_gpu_h100-t3", key="sim_qos")
         with cd:
-            _tl_default = "24:00:00" if job_mode == "grid" else "01:00:00"
-            time_limit = st.text_input("Time limit", value=_tl_default, key="sim_time_limit")
+            time_limit = st.text_input(
+                "Time limit", value="01:00:00", key="sim_time_limit"
+            )
 
         # sbatch-only fields
         output_logs = "SLURM_LOGS"
@@ -262,7 +307,9 @@ with c1:
             ce, cf = st.columns(2)
             with ce:
                 output_logs = st.text_input(
-                    "Output logs dir", value="SLURM_LOGS", key="sim_output_logs",
+                    "Output logs dir",
+                    value="SLURM_LOGS",
+                    key="sim_output_logs",
                 )
             with cf:
                 _raw_script = st.text_input(
@@ -279,7 +326,9 @@ with c1:
         cg, ch = st.columns(2)
         with cg:
             gpus_per_node = st.number_input(
-                "GPU per node", min_value=0, value=4,
+                "GPU per node",
+                min_value=0,
+                value=4,
                 key="sim_gpus_per_node",
                 help="tasks-per-node = GPUs per node (1 task/GPU is the only supported mode)",
             )
@@ -290,7 +339,10 @@ with c1:
         with ci:
             st.markdown("-")
             cpus_per_node = st.number_input(
-                "CPU per node", min_value=1, value=4, key="sim_cpus_per_node",
+                "CPU per node",
+                min_value=1,
+                value=4,
+                key="sim_cpus_per_node",
             )
         with cj:
             st.markdown("**PDIMS**")
@@ -315,21 +367,28 @@ with c1:
             st.write("**Mesh sizes**")
         with mh2:
             halo_multiplier = st.number_input(
-                "Halo multiplier", min_value=0.0, value=0.5,
-                step=0.05, format="%.2f",
+                "Halo multiplier",
+                min_value=0.0,
+                value=0.5,
+                step=0.05,
+                format="%.2f",
                 key="sim_halo_multiplier",
                 help="Halo size = local_mesh × halo_multiplier",
             )
 
         mesh_size = render_dynamic_triple_list(
-            "mesh_size", "sim_mesh_size",
-            [(64, 64, 64), (32, 32, 32)], cast_fn=int,
+            "mesh_size",
+            "sim_mesh_size",
+            [(64, 64, 64), (32, 32, 32)],
+            cast_fn=int,
         )
 
         st.write("**Box sizes**")
         box_size = render_dynamic_triple_list(
-            "box_size", "sim_box_size",
-            [(1000, 1000, 1000)], cast_fn=float,
+            "box_size",
+            "sim_box_size",
+            [(1000, 1000, 1000)],
+            cast_fn=float,
         )
 
         st.write("**Observer position**")
@@ -347,7 +406,7 @@ with c1:
         enable_x64 = st.checkbox("enable_x64", value=False, key="sim_enable_x64")
 
         # Halo multiplier validation: local_mesh × (1 + halo_multiplier) must be integer
-        _mesh_triples = [mesh_size[i:i+3] for i in range(0, len(mesh_size), 3)]
+        _mesh_triples = [mesh_size[i : i + 3] for i in range(0, len(mesh_size), 3)]
         for _triple in _mesh_triples:
             if len(_triple) < 3:
                 continue
@@ -385,12 +444,16 @@ with c3:
         if output_target == "Spherical (nside)":
             nside = st.number_input("nside", min_value=1, value=64, key="sim_nside")
             scheme = st.selectbox(
-                "scheme", ["ngp", "bilinear", "rbf_neighbor"],
+                "scheme",
+                ["ngp", "bilinear", "rbf_neighbor"],
                 index=1,
                 key="sim_scheme",
             )
             paint_nside = st.number_input(
-                "paint_nside", min_value=1, value=64, key="sim_paint_nside",
+                "paint_nside",
+                min_value=1,
+                value=64,
+                key="sim_paint_nside",
             )
             if scheme == "rbf_neighbor":
                 with st.expander("RBF parameters"):
@@ -402,17 +465,23 @@ with c3:
                     )
                     if activate_rbf:
                         kernel_width_arcmin = st.number_input(
-                            "kernel_width_arcmin (arcmin)", value=5.0,
-                            min_value=0.01, format="%.2f",
+                            "kernel_width_arcmin (arcmin)",
+                            value=5.0,
+                            min_value=0.01,
+                            format="%.2f",
                             key="sim_kernel_width_arcmin",
                         )
         elif output_target == "Flat sky":
             st.write("**Pixels (H × W)**")
             fp1, fp2 = st.columns(2)
             with fp1:
-                _fp_h = st.number_input("H", min_value=1, value=512, key="sim_flatsky_h")
+                _fp_h = st.number_input(
+                    "H", min_value=1, value=512, key="sim_flatsky_h"
+                )
             with fp2:
-                _fp_w = st.number_input("W", min_value=1, value=512, key="sim_flatsky_w")
+                _fp_w = st.number_input(
+                    "W", min_value=1, value=512, key="sim_flatsky_w"
+                )
             flatsky_npix = [_fp_h, _fp_w]
 
             st.write("**Field size (H × W) deg**")
@@ -428,34 +497,36 @@ with c3:
             density_flag = True
         # Particles: no extra inputs needed
 
-        _out_dir_default = "results/cosmology_runs" if job_mode == "simulate" else "results/grid_runs"
         output_dir = st.text_input(
-            "output_dir", value=_out_dir_default, key="sim_output_dir",
+            "output_dir",
+            value="results/cosmology_runs",
+            key="sim_output_dir",
+            help=(
+                "Placeholders: %constraint%, %mesh_size%, %box_size%, "
+                "%nb_steps%, %omega_c%, %sigma8%, %seed%"
+            ),
         )
 
-        if job_mode == "simulate":
-            if "sim_name_template" not in st.session_state:
+        if "sim_name_template" not in st.session_state:
+            st.session_state["sim_name_template"] = DEFAULT_NAME_TEMPLATE
+        _nt_col, _nt_btn = st.columns([3, 1])
+        with _nt_col:
+            name_template = st.text_input(
+                "Name template",
+                key="sim_name_template",
+                help=(
+                    "Placeholders: %constraint%, %mesh_size%, %box_size%, "
+                    "%nb_steps%, %omega_c%, %sigma8%, %seed%"
+                ),
+            )
+        with _nt_btn:
+            st.markdown("&nbsp;", unsafe_allow_html=True)
+            if st.button("Default", key="sim_name_template_reset"):
                 st.session_state["sim_name_template"] = DEFAULT_NAME_TEMPLATE
-            _nt_col, _nt_btn = st.columns([3, 1])
-            with _nt_col:
-                name_template = st.text_input(
-                    "Name template",
-                    key="sim_name_template",
-                    help=(
-                        "Placeholders: %constraint%, %mesh_size%, %box_size%, "
-                        "%nb_steps%, %omega_c%, %sigma8%, %seed%"
-                    ),
-                )
-            with _nt_btn:
-                st.markdown("&nbsp;", unsafe_allow_html=True)
-                if st.button("Default", key="sim_name_template_reset"):
-                    st.session_state["sim_name_template"] = DEFAULT_NAME_TEMPLATE
-                    st.rerun()
-        else:
-            name_template = DEFAULT_NAME_TEMPLATE
+                st.rerun()
 
-        # Profile (grayed out in grid mode)
-        _profile_disabled = (job_mode == "grid")
+        # Profile
+        _profile_disabled = False
         prof_col, iter_col = st.columns([2, 1])
         with prof_col:
             profile = st.checkbox(
@@ -469,7 +540,10 @@ with c3:
             iterations = None
             if profile and not _profile_disabled:
                 iterations = st.number_input(
-                    "Iter", min_value=1, value=3, key="sim_iterations",
+                    "Iter",
+                    min_value=1,
+                    value=3,
+                    key="sim_iterations",
                 )
 
     # ── Cosmology ─────────────────────────────────────────────────────────────
@@ -480,10 +554,14 @@ with c3:
         oc_col, s8_col = st.columns(2)
         with oc_col:
             st.markdown("**omega_c**")
-            omega_c = render_dynamic_list("omega_c", "sim_omega_c", ["0.2589"], cast_fn=str)
+            omega_c = render_dynamic_list(
+                "omega_c", "sim_omega_c", ["0.2589"], cast_fn=str
+            )
         with s8_col:
             st.markdown("**sigma8**")
-            sigma8 = render_dynamic_list("sigma8", "sim_sigma8", ["0.8159"], cast_fn=str)
+            sigma8 = render_dynamic_list(
+                "sigma8", "sim_sigma8", ["0.8159"], cast_fn=str
+            )
 
         st.divider()
 
@@ -492,7 +570,9 @@ with c3:
         with h1c:
             h = st.number_input("h", value=0.6774, format="%.4f", key="sim_h")
         with h2c:
-            omega_b = st.number_input("omega_b", value=0.0486, format="%.4f", key="sim_omega_b")
+            omega_b = st.number_input(
+                "omega_b", value=0.0486, format="%.4f", key="sim_omega_b"
+            )
 
         wa_col, w0_col = st.columns(2)
         with wa_col:
@@ -502,93 +582,103 @@ with c3:
 
         nu_col, k_col = st.columns(2)
         with nu_col:
-            omega_nu = st.number_input("omega_nu", value=0.0, format="%.4f", key="sim_omega_nu")
+            omega_nu = st.number_input(
+                "omega_nu", value=0.0, format="%.4f", key="sim_omega_nu"
+            )
         with k_col:
-            omega_k = st.number_input("omega_k", value=0.0, format="%.4f", key="sim_omega_k")
+            omega_k = st.number_input(
+                "omega_k", value=0.0, format="%.4f", key="sim_omega_k"
+            )
 
         n_s = st.number_input("n_s", value=0.9667, format="%.4f", key="sim_n_s")
 
 # ── Stepping plot (all required vars now defined) ─────────────────────────────
 _sim_for_plot = {"t0": t0, "t1": t1, "nb_steps": nb_steps}
-_lc_for_plot  = {"nb_shells": nb_shells}
+_lc_for_plot = {"nb_shells": nb_shells}
 
 with top_right:
     if simulation_type in ("nbody", "lensing"):
         observer_position = [obs_x, obs_y, obs_z]
-        render_stepping_plot(_sim_for_plot, _lc_for_plot, box_size, observer_position, time_stepping=time_stepping, min_width=min_width)
+        render_stepping_plot(
+            _sim_for_plot,
+            _lc_for_plot,
+            box_size,
+            observer_position,
+            time_stepping=time_stepping,
+            min_width=min_width,
+        )
 
 # ── Build command ─────────────────────────────────────────────────────────────
 params = {
     # SLURM
-    "mode":           dispatch_mode,
-    "account":        account,
-    "constraint":     constraint,
-    "qos":            qos,
-    "time_limit":     time_limit,
-    "output_logs":    output_logs,
-    "gpus_per_node":  gpus_per_node,
-    "cpus_per_node":  cpus_per_node,
+    "mode": dispatch_mode,
+    "account": account,
+    "constraint": constraint,
+    "qos": qos,
+    "time_limit": time_limit,
+    "output_logs": output_logs,
+    "gpus_per_node": gpus_per_node,
+    "cpus_per_node": cpus_per_node,
     "tasks_per_node": None,
-    "nodes":          nodes,
-    "slurm_script":   slurm_script,
-    "pdim":           [px, py],
+    "nodes": nodes,
+    "slurm_script": slurm_script,
+    "pdim": [px, py],
     # Sim
-    "lpt_order":      lpt_order,
-    "nb_steps":       nb_steps,
-    "t0":             t0,
-    "t1":             t1,
-    "interp":         interp,
-    "scheme":         scheme,
-    "paint_nside":    paint_nside,
+    "lpt_order": lpt_order,
+    "nb_steps": nb_steps,
+    "t0": t0,
+    "t1": t1,
+    "interp": interp,
+    "scheme": scheme,
+    "paint_nside": paint_nside,
     "kernel_width_arcmin": kernel_width_arcmin,
-    "enable_x64":     enable_x64,
-    "dealiased":      dealiased,
-    "exact_growth":   exact_growth,
+    "enable_x64": enable_x64,
+    "dealiased": dealiased,
+    "exact_growth": exact_growth,
     "gradient_order": gradient_order,
-    "laplace_fd":     laplace_fd,
+    "laplace_fd": laplace_fd,
     # Cosmo
-    "h":              h,
-    "omega_b":        omega_b,
-    "omega_k":        omega_k,
-    "omega_nu":       omega_nu,
-    "w0":             w0,
-    "wa":             wa,
-    "n_s":            n_s,
+    "h": h,
+    "omega_b": omega_b,
+    "omega_k": omega_k,
+    "omega_nu": omega_nu,
+    "w0": w0,
+    "wa": wa,
+    "n_s": n_s,
     # Lensing (empty dict when not lensing mode)
     **lensing,
     # Lightcone
-    "nb_shells":          nb_shells_for_cmd,
-    "halo_multiplier":    halo_multiplier,
-    "observer_position":  [obs_x, obs_y, obs_z],
-    "ts":                 ts,
-    "ts_near":            ts_near,
-    "ts_far":             ts_far,
+    "nb_shells": nb_shells_for_cmd,
+    "halo_multiplier": halo_multiplier,
+    "observer_position": [obs_x, obs_y, obs_z],
+    "ts": ts,
+    "ts_near": ts_near,
+    "ts_far": ts_far,
     "drift_on_lightcone": drift_on_lightcone,
-    "min_width":          min_width,
+    "min_width": min_width,
     # Simulation settings
-    "output_dir":         output_dir,
-    "name_template":      name_template,
-    "simulation_type":    simulation_type,
-    "nside":              nside,
-    "flatsky_npix":       flatsky_npix,
-    "field_size":         field_size,
-    "density":            density_flag,
-    "shell_spacing":      shell_spacing,
-    "time_stepping":      time_stepping,
-    "solver":             solver,
-    "mesh_size":          mesh_size,
-    "box_size":           box_size,
-    "omega_c":            omega_c,
-    "sigma8":             sigma8,
-    "seed":               seed,
-    "density_widths":     density_widths,
+    "output_dir": output_dir,
+    "name_template": name_template,
+    "simulation_type": simulation_type,
+    "nside": nside,
+    "flatsky_npix": flatsky_npix,
+    "field_size": field_size,
+    "density": density_flag,
+    "shell_spacing": shell_spacing,
+    "time_stepping": time_stepping,
+    "solver": solver,
+    "mesh_size": mesh_size,
+    "box_size": box_size,
+    "omega_c": omega_c,
+    "sigma8": sigma8,
+    "seed": seed,
+    "density_widths": density_widths,
 }
 
-if job_mode == "simulate":
-    params["perf"]       = profile
-    params["iterations"] = iterations if profile else None
+params["perf"] = profile
+params["iterations"] = iterations if profile else None
 
-cmd = build_command(job_mode, params)
+cmd = build_command("simulate", params)
 
 # Fill the middle placeholder with the generated command
 with cmd_placeholder:

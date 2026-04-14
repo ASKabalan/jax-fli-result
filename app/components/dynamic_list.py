@@ -1,12 +1,15 @@
 """Reusable dynamic-list widgets for Streamlit forms."""
 from __future__ import annotations
 
-import streamlit as st
+from collections.abc import Callable
+from typing import Any
 
+import streamlit as st
 
 # ---------------------------------------------------------------------------
 # Callbacks (executed before rerun so state is consistent)
 # ---------------------------------------------------------------------------
+
 
 def _add_entry(key: str, data_key: str, counter_key: str, default_val: str) -> None:
     uid = st.session_state[counter_key]
@@ -19,7 +22,9 @@ def _remove_entry(data_key: str, uid: int) -> None:
     st.session_state[data_key].remove(uid)
 
 
-def _add_triple(key: str, data_key: str, counter_key: str, default_triple: tuple) -> None:
+def _add_triple(
+    key: str, data_key: str, counter_key: str, default_triple: tuple
+) -> None:
     uid = st.session_state[counter_key]
     st.session_state[counter_key] = uid + 1
     st.session_state[data_key].append(uid)
@@ -36,7 +41,10 @@ def _remove_triple(data_key: str, uid: int) -> None:
 # Public API
 # ---------------------------------------------------------------------------
 
-def render_dynamic_list(label: str, key: str, defaults: list, cast_fn=str) -> list:
+
+def render_dynamic_list(
+    label: str, key: str, defaults: list, cast_fn: Callable[..., Any] = str
+) -> list:
     """Render a dynamic list of single-value entries.
 
     Returns list[T] where T is determined by *cast_fn*.
@@ -58,14 +66,18 @@ def render_dynamic_list(label: str, key: str, defaults: list, cast_fn=str) -> li
             st.text_input(label, key=f"_dl_{key}_v_{uid}", label_visibility="collapsed")
         with c2:
             st.button(
-                "\u2715", key=f"_dl_{key}_rm_{uid}",
-                on_click=_remove_entry, args=(data_key, uid),
+                "\u2715",
+                key=f"_dl_{key}_rm_{uid}",
+                on_click=_remove_entry,
+                args=(data_key, uid),
             )
 
     default_val = defaults[0] if defaults else ""
     st.button(
-        f"\u002B Add {label}", key=f"_dl_{key}_add",
-        on_click=_add_entry, args=(key, data_key, counter_key, default_val),
+        f"\u002B Add {label}",
+        key=f"_dl_{key}_add",
+        on_click=_add_entry,
+        args=(key, data_key, counter_key, default_val),
     )
 
     result = []
@@ -78,7 +90,9 @@ def render_dynamic_list(label: str, key: str, defaults: list, cast_fn=str) -> li
     return result
 
 
-def render_dynamic_triple_list(label: str, key: str, defaults: list[tuple], cast_fn=int) -> list:
+def render_dynamic_triple_list(
+    label: str, key: str, defaults: list[tuple], cast_fn: Callable[..., Any] = int
+) -> list:
     """Render a dynamic list of (X, Y, Z) triple entries.
 
     *defaults* is a list of 3-tuples, e.g. ``[(64,64,64), (32,32,32)]``.
@@ -107,14 +121,18 @@ def render_dynamic_triple_list(label: str, key: str, defaults: list[tuple], cast
             st.text_input("Z", key=f"_dtl_{key}_z_{uid}", label_visibility="collapsed")
         with c4:
             st.button(
-                "\u2715", key=f"_dtl_{key}_rm_{uid}",
-                on_click=_remove_triple, args=(data_key, uid),
+                "\u2715",
+                key=f"_dtl_{key}_rm_{uid}",
+                on_click=_remove_triple,
+                args=(data_key, uid),
             )
 
     default_triple = defaults[0] if defaults else (0, 0, 0)
     st.button(
-        f"\u002B Add {label}", key=f"_dtl_{key}_add",
-        on_click=_add_triple, args=(key, data_key, counter_key, default_triple),
+        f"\u002B Add {label}",
+        key=f"_dtl_{key}_add",
+        on_click=_add_triple,
+        args=(key, data_key, counter_key, default_triple),
     )
 
     result = []

@@ -15,7 +15,9 @@ def render_lensing_form(defaults: dict | None = None, prefix: str = "") -> dict:
         default_nz = defaults.get("nz_shear", ["s3"])
         if isinstance(default_nz, str):
             default_nz = [default_nz]
-        is_s3_default = len(default_nz) == 1 and str(default_nz[0]).lower().startswith("s3")
+        is_s3_default = len(default_nz) == 1 and str(default_nz[0]).lower().startswith(
+            "s3"
+        )
         default_mode = "s3 preset" if is_s3_default else "custom z values"
 
         mode = st.radio(
@@ -45,11 +47,28 @@ def render_lensing_form(defaults: dict | None = None, prefix: str = "") -> dict:
 
         c1, c2 = st.columns(2)
         with c1:
-            min_z = st.number_input("min_z", min_value=0.0, value=defaults.get("min_z", 0.01), format="%.4f", key=f"{prefix}min_z")
+            min_z = st.number_input(
+                "min_z",
+                min_value=0.0,
+                value=defaults.get("min_z", 0.01),
+                format="%.4f",
+                key=f"{prefix}min_z",
+            )
         with c2:
-            max_z = st.number_input("max_z", min_value=0.0, value=defaults.get("max_z", 1.5), format="%.4f", key=f"{prefix}max_z")
+            max_z = st.number_input(
+                "max_z",
+                min_value=0.0,
+                value=defaults.get("max_z", 1.5),
+                format="%.4f",
+                key=f"{prefix}max_z",
+            )
 
-        n_integrate = st.number_input("n_integrate", min_value=1, value=defaults.get("n_integrate", 32), key=f"{prefix}n_integrate")
+        n_integrate = st.number_input(
+            "n_integrate",
+            min_value=1,
+            value=defaults.get("n_integrate", 32),
+            key=f"{prefix}n_integrate",
+        )
 
         return {
             "nz_shear": nz_shear,

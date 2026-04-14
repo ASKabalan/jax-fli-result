@@ -22,12 +22,23 @@ def render_save_figure(fig, key_prefix: str = "save", filename: str = "figure") 
     with c_fmt:
         fmt = st.selectbox("Format", ["png", "pdf"], key=f"{key_prefix}_fmt")
     with c_dpi:
-        dpi = st.number_input("DPI", min_value=50, max_value=600, value=150, step=50, key=f"{key_prefix}_dpi")
+        dpi = st.number_input(
+            "DPI",
+            min_value=50,
+            max_value=600,
+            value=150,
+            step=50,
+            key=f"{key_prefix}_dpi",
+        )
     with c_transp:
-        transparent = st.checkbox("Transparent", value=False, key=f"{key_prefix}_transp")
+        transparent = st.checkbox(
+            "Transparent", value=False, key=f"{key_prefix}_transp"
+        )
     with c_btn:
         buf = io.BytesIO()
-        fig.savefig(buf, format=fmt, dpi=dpi, transparent=transparent, bbox_inches="tight")
+        fig.savefig(
+            buf, format=fmt, dpi=dpi, transparent=transparent, bbox_inches="tight"
+        )
         buf.seek(0)
         st.download_button(
             label=f"Download .{fmt}",

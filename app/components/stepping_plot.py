@@ -15,11 +15,13 @@ _PLOT_KEY = "stepping_plot_fig"
 def _load_jax_modules():
     """Lazy-load heavy JAX dependencies once."""
     import os
+
     os.environ.setdefault("JAX_PLATFORMS", "cpu")
     os.environ.setdefault("JAX_PLATFORM_NAME", "cpu")
 
     import jax_cosmo as jc
     from jax_fli.pm._resolve_geometry import simulation_stepping
+
     return jc, simulation_stepping
 
 
@@ -28,7 +30,7 @@ def _compute_stepping(
     t0: float,
     t1: float,
     nb_steps: int,
-    ts: tuple[float, ...],   # snapshot scale factors — replaces nb_shells
+    ts: tuple[float, ...],  # snapshot scale factors — replaces nb_shells
     time_stepping: str,
     min_width: float,
 ) -> tuple[list[float], list[int]]:
@@ -55,7 +57,10 @@ def _compute_stepping(
     ts_arr = jnp.asarray(ts) if ts else None
 
     result = simulation_stepping(
-        cosmo, t0, t1, nb_steps,
+        cosmo,
+        t0,
+        t1,
+        nb_steps,
         ts=ts_arr,
         time_stepping=time_stepping,
         min_width=min_width,
@@ -84,8 +89,8 @@ def render_stepping_plot(
     min_width: float,
 ) -> None:
     """Render an interactive stepping plot in the current Streamlit container."""
-    import plotly.graph_objects as go
     import numpy as np
+    import plotly.graph_objects as go
 
     st.subheader("Simulation Stepping Plot")
 
@@ -129,24 +134,32 @@ def render_stepping_plot(
             fig = go.Figure()
 
             # Blue line + round markers for every integration step
-            fig.add_trace(go.Scatter(
-                x=x_all,
-                y=distances,
-                mode="lines+markers",
-                marker=dict(size=7, symbol="circle", color="#2563EB"),
-                line=dict(color="#2563EB", width=1.5),
-                name="Integration steps",
-            ))
+            fig.add_trace(
+                go.Scatter(
+                    x=x_all,
+                    y=distances,
+                    mode="lines+markers",
+                    marker=dict(size=7, symbol="circle", color="#2563EB"),
+                    line=dict(color="#2563EB", width=1.5),
+                    name="Integration steps",
+                )
+            )
 
             # Red round markers for snapshot targets
-            fig.add_trace(go.Scatter(
-                x=snap_x,
-                y=snap_y,
-                mode="markers",
-                marker=dict(size=11, symbol="circle", color="#DC2626",
-                            line=dict(color="white", width=1.5)),
-                name="Snapshots (ts)",
-            ))
+            fig.add_trace(
+                go.Scatter(
+                    x=snap_x,
+                    y=snap_y,
+                    mode="markers",
+                    marker=dict(
+                        size=11,
+                        symbol="circle",
+                        color="#DC2626",
+                        line=dict(color="white", width=1.5),
+                    ),
+                    name="Snapshots (ts)",
+                )
+            )
 
             fig.add_hline(
                 y=max_box_size,

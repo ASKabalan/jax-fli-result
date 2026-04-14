@@ -31,7 +31,7 @@ Analysis notebook : [01-step_size.ipynb](https://github.com/ASKabalan/jax-fli-re
 
 config name : `01-step_size_cosmology`
 
-to load 
+to load
 
 ```python
 from datasets import load_dataset

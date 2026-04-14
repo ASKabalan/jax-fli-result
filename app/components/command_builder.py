@@ -1,8 +1,11 @@
 """Build the CLI command string from collected parameters."""
 from __future__ import annotations
 
-from jax_fli.scripts.parser import DEFAULT_NAME_TEMPLATE
-
+DEFAULT_NAME_TEMPLATE: str = "%constraint%_cosmo_M%mesh_size%_B%box_size%_STEPS%nb_steps%_c%omega_c%_S8%sigma8%_s%seed%"
+try:
+    from jax_fli.scripts.parser import DEFAULT_NAME_TEMPLATE  # noqa: F811
+except ImportError:
+    pass
 
 # Per-subcommand argument specs: (flag, type, default)
 # type is one of: str, int, float, bool, list, list_str, optional_int, optional_str
@@ -13,7 +16,7 @@ from jax_fli.scripts.parser import DEFAULT_NAME_TEMPLATE
 _SLURM_SPEC = [
     ("mode", str, "dryrun"),
     ("account", str, "XXX"),
-    ("constraint", str, "h100"),
+    ("constraint", "optional_str", None),
     ("gpus-per-node", int, 4),
     ("cpus-per-node", int, 16),
     ("tasks-per-node", "optional_int", None),
@@ -21,7 +24,7 @@ _SLURM_SPEC = [
     ("qos", str, "qos_gpu_h100-t3"),
     ("time-limit", str, "00:30:00"),
     ("slurm-script", "optional_str", None),
-    ("pdim", list, [16, 1]),
+    ("pdim", "optional_list", None),
     ("output-logs", str, "SLURM_LOGS"),
 ]
 
@@ -127,7 +130,12 @@ def build_command(subcommand: str, params: dict) -> str:
 def _get_specs_for(subcommand: str) -> list:
     """Return the full argument spec list for a subcommand."""
     specs = {
-        "simulate": _SLURM_SPEC + _SIM_SPEC + _COSMO_SPEC + _LENSING_SPEC + _LIGHTCONE_SPEC + [
+        "simulate": _SLURM_SPEC
+        + _SIM_SPEC
+        + _COSMO_SPEC
+        + _LENSING_SPEC
+        + _LIGHTCONE_SPEC
+        + [
             ("output-dir", str, "results/cosmology_runs"),
             ("name-template", str, DEFAULT_NAME_TEMPLATE),
             ("simulation-type", str, "nbody"),
@@ -147,24 +155,11 @@ def _get_specs_for(subcommand: str) -> list:
             ("perf", bool, False),
             ("iterations", "optional_int", None),
         ],
-        "grid": _SLURM_SPEC + _SIM_SPEC + _COSMO_SPEC + _LENSING_SPEC + _LIGHTCONE_SPEC + [
-            ("output-dir", str, "results/grid_runs"),
-            ("simulation-type", str, "nbody"),
-            # Output target (mutually exclusive — only one emitted)
-            ("nside", "optional_int", None),
-            ("flatsky-npix", "optional_list", None),
-            ("field-size", "optional_list", None),
-            ("density", bool, False),
-            ("mesh-size", list, [64, 64, 64, 32, 32, 32]),
-            ("box-size", list, [500.0, 500.0, 500.0, 1000.0, 1000.0, 1000.0]),
-            ("Omega-c", "list_str", []),
-            ("sigma8", "list_str", []),
-            ("seed", "list_str", []),
-            ("shell-spacing", str, "comoving"),
-            ("solver", str, "kdk"),
-            ("density-widths", "optional_list", None),
-        ],
-        "samples": _SLURM_SPEC + _SIM_SPEC + _LENSING_SPEC + _LIGHTCONE_SPEC + [
+        "samples": _SLURM_SPEC
+        + _SIM_SPEC
+        + _LENSING_SPEC
+        + _LIGHTCONE_SPEC
+        + [
             ("output-dir", str, "test_fli_samples"),
             ("model", str, "mock"),
             ("mesh-size", list, [64, 64, 64]),
@@ -175,7 +170,11 @@ def _get_specs_for(subcommand: str) -> list:
             ("batches", list, [0, 1, 2, 3, 4, 5]),
             ("equal-vol", bool, False),
         ],
-        "infer": _SLURM_SPEC + _SIM_SPEC + _LENSING_SPEC + _LIGHTCONE_SPEC + [
+        "infer": _SLURM_SPEC
+        + _SIM_SPEC
+        + _LENSING_SPEC
+        + _LIGHTCONE_SPEC
+        + [
             ("observable-dir", str, "observables"),
             ("observable", str, ""),
             ("output-dir", str, "results/inference_runs"),
@@ -190,7 +189,7 @@ def _get_specs_for(subcommand: str) -> list:
             ("sampler", str, "NUTS"),
             ("backend", str, "blackjax"),
             ("sigma-e", float, 0.26),
-            ("sample", list, ["cosmo", "ic"]),
+            ("sample", "list_str", ["cosmo", "ic"]),
             ("initial-condition", "optional_str", None),
             ("init-cosmo", bool, False),
             ("equal-vol", bool, False),
@@ -199,11 +198,16 @@ def _get_specs_for(subcommand: str) -> list:
             ("h", float, 0.6774),
             ("seed", int, 0),
         ],
-        "extract": _SLURM_SPEC + [
+        "extract": _SLURM_SPEC
+        + [
             ("input-dir", str, "test_fli_samples"),
             ("repo-id", "optional_str", None),
             ("config", "optional_list", None),
-            ("truth-parquet", str, "test_fli_samples/chain_0/samples/samples_0.parquet"),
+            (
+                "truth-parquet",
+                str,
+                "test_fli_samples/chain_0/samples/samples_0.parquet",
+            ),
             ("output-file", str, "results/extracts/extract.parquet"),
             ("set-name", str, "my_extract"),
             ("cosmo-keys", list, ["Omega_c", "sigma8"]),
@@ -212,12 +216,16 @@ def _get_specs_for(subcommand: str) -> list:
             ("ddof", int, 0),
             ("enable-x64", bool, False),
         ],
-        "born-rt": _SLURM_SPEC + _LENSING_SPEC + [
+        "born-rt": _SLURM_SPEC
+        + _LENSING_SPEC
+        + [
             ("input-dir", str, "results/cosmology_runs"),
             ("output-dir", str, "results/lensing/multi_shell"),
             ("enable-x64", bool, False),
         ],
-        "dorian-rt": _SLURM_SPEC + _LENSING_SPEC + [
+        "dorian-rt": _SLURM_SPEC
+        + _LENSING_SPEC
+        + [
             ("input-dir", str, "results/cosmology_runs"),
             ("output-dir", str, "results/lensing/multi_shell_raytrace"),
             ("rt-interp", str, "bilinear"),

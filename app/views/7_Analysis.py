@@ -13,10 +13,12 @@ os.environ.setdefault("JAX_PLATFORM_NAME", "cpu")
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 import streamlit as st
+
 from app.components.styled_container import inject_custom_css
 
 inject_custom_css()
 st.title("Analysis")
 
 from app.views._7_Analysis.form import run
+
 run()

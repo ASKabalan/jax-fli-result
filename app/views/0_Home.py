@@ -1,6 +1,7 @@
 """Landing page for the jax-fli Launcher GUI."""
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 import streamlit as st
@@ -10,7 +11,8 @@ from app.components.styled_container import inject_custom_css
 inject_custom_css()
 
 st.title("jax-fli Launcher")
-st.markdown("""
+st.markdown(
+    """
 Welcome to the **jax-fli Launcher GUI**. Use the sidebar to navigate to a subcommand page.
 
 In order to start be sure that you have installed the package with the correct extras
@@ -36,4 +38,5 @@ pip install git+https://github.com/ASKabalan/jax-fli-result.git[raytracing,sampl
 | **Born RT** | `born-rt` | Submit a fli-born-rt Born lensing post-processing job |
 | **Dorian RT** | `dorian-rt` | Submit a fli-dorian-rt ray-tracing lensing job (CPU/MPI) |
 
-""")
+"""
+)

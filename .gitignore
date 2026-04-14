@@ -10,3 +10,12 @@ results
 # Jupyter artifacts
 .ipynb_checkpoints/
 __pycache__/
+
+
+# Agents
+CLAUDE.md
+GEMINI.md
+
+# misc
+
+analyze_samples.ipynb

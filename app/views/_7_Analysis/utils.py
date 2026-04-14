@@ -4,8 +4,6 @@ from __future__ import annotations
 import io
 from threading import RLock
 
-import matplotlib.lines as mlines
-import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.ticker import FormatStrFormatter
@@ -19,15 +17,16 @@ _plt_lock = RLock()
 # Field type groups
 # ---------------------------------------------------------------------------
 _SPHERICAL_TYPES = {"SphericalDensity", "SphericalKappaField"}
-_FLAT_TYPES      = {"FlatDensity", "FlatKappaField"}
-_KAPPA_TYPES     = {"SphericalKappaField", "FlatKappaField"}
-_DENSITY_3D      = {"DensityField"}
-_PARTICLE_TYPE   = {"ParticleField"}
+_FLAT_TYPES = {"FlatDensity", "FlatKappaField"}
+_KAPPA_TYPES = {"SphericalKappaField", "FlatKappaField"}
+_DENSITY_3D = {"DensityField"}
+_PARTICLE_TYPE = {"ParticleField"}
+_SPECTRA_TYPES = {"PowerSpectrum"}
 
 # ---------------------------------------------------------------------------
 # Color palette
 # ---------------------------------------------------------------------------
-_PALETTE      = ["tab:blue", "tab:orange", "tab:green", "tab:red", "tab:purple", "tab:brown"]
+_PALETTE = ["tab:blue", "tab:orange", "tab:green", "tab:red", "tab:purple", "tab:brown"]
 _COLOR_THEORY = "black"
 
 
@@ -35,40 +34,50 @@ _COLOR_THEORY = "black"
 # Index parsing
 # ---------------------------------------------------------------------------
 
-def parse_shell_index(index_str: str, n_total: int) -> list[int]:
-    """Parse a numpy-style index string and return a list of valid integer indices.
 
-    Examples:
-        ":"    -> [0, 1, ..., n_total-1]
-        "0:3"  -> [0, 1, 2]
-        "::2"  -> [0, 2, 4, ...]
-        "-3:"  -> [n_total-3, n_total-2, n_total-1]
-
-    Falls back to the full range on any parse error — never raises.
-    Comma-separated lists are not supported by np.s_ and will fall back.
+def parse_slice(s: str) -> slice:
     """
-    full = list(range(n_total))
-    s = index_str.strip()
+    Parses strings like ':', '1:5', ':-1', or '-10:' into a slice object.
+    """
+    # Examples:
+    # "1:10:2" -> slice(1, 10, 2)
+    # "-10:"   -> slice(-10, None, None)
+    # ":"      -> slice(None, None, None)
+    s = s.strip()
     if not s or s == ":":
-        return full
+        return slice(None)
+
+    # Split by ':' and take up to 3 parts (start, stop, step)
+    parts = s.split(":")
+
+    def to_int(val):
+        val = val.strip()
+        return int(val) if val else None
+
     try:
-        idx = eval(f"np.s_[{s}]", {"np": np})
-        arr = np.arange(n_total)[idx]
-        if arr.ndim == 0:
-            arr = np.array([int(arr)])
-        valid = [int(i) for i in arr if 0 <= i < n_total]
-        return valid if valid else full
-    except Exception:
-        return full
+        # Pad parts to ensure we can unpack at least 1, up to 3
+        # slice(*[None, None]) -> slice(None, None)
+        return slice(*[to_int(p) for p in parts[:3]])
+    except ValueError:
+        # Fallback for invalid strings
+        return slice(None)
 
 
 # ---------------------------------------------------------------------------
 # Figure utilities
 # ---------------------------------------------------------------------------
 
+
 def _fig_to_png(fig, dpi: int = 100) -> bytes:
     buf = io.BytesIO()
     fig.savefig(buf, format="png", dpi=dpi, bbox_inches="tight")
+    buf.seek(0)
+    return buf.getvalue()
+
+
+def _fig_to_pdf(fig, dpi: int = 100) -> bytes:
+    buf = io.BytesIO()
+    fig.savefig(buf, format="pdf", dpi=dpi, bbox_inches="tight")
     buf.seek(0)
     return buf.getvalue()
 
@@ -78,8 +87,8 @@ def _make_title(template: str, field, idx: int) -> str:
     title = template
     for attr, key, fmt in [
         ("comoving_centers", "%r%", ".1f"),
-        ("z_sources",        "%z%", ".3f"),
-        ("scale_factors",    "%a%", ".4f"),
+        ("z_sources", "%z%", ".3f"),
+        ("scale_factors", "%a%", ".4f"),
     ]:
         if key not in title:
             continue
@@ -114,6 +123,7 @@ def _clean_ratio_ax(ax, ylabel: str, bands: list[float]) -> None:
 # Pixel window
 # ---------------------------------------------------------------------------
 
+
 def pixel_window_function(ell, pixel_size_arcmin):
     """Pixel window function W_l = sinc²(l · θ_pix / 2π)."""
     pixel_size_rad = pixel_size_arcmin * (np.pi / (180.0 * 60.0))
@@ -124,28 +134,31 @@ def pixel_window_function(ell, pixel_size_arcmin):
 # JCAP publication style
 # ---------------------------------------------------------------------------
 
+
 def set_jcap_style() -> None:
     """Configure matplotlib for JCAP-quality publication figures."""
-    plt.rcParams.update({
-        "text.usetex":               True,
-        "font.family":               "serif",
-        "font.serif":                ["Computer Modern Roman"],
-        "font.size":                 11,
-        "figure.figsize":            (6.0, 4.5),
-        "figure.dpi":                150,
-        "axes.labelsize":            12,
-        "axes.titlesize":            12,
-        "axes.linewidth":            0.8,
-        "xtick.top":                 True,
-        "ytick.right":               True,
-        "xtick.direction":           "in",
-        "ytick.direction":           "in",
-        "xtick.minor.visible":       True,
-        "ytick.minor.visible":       True,
-        "xtick.major.size":          6,
-        "xtick.minor.size":          3,
-        "legend.fontsize":           10,
-        "legend.frameon":            False,
-        "lines.linewidth":           1.5,
-        "lines.markersize":          4,
-    })
+    plt.rcParams.update(
+        {
+            "text.usetex": True,
+            "font.family": "serif",
+            "font.serif": ["Computer Modern Roman"],
+            "font.size": 11,
+            "figure.figsize": (6.0, 4.5),
+            "figure.dpi": 150,
+            "axes.labelsize": 12,
+            "axes.titlesize": 12,
+            "axes.linewidth": 0.8,
+            "xtick.top": True,
+            "ytick.right": True,
+            "xtick.direction": "in",
+            "ytick.direction": "in",
+            "xtick.minor.visible": True,
+            "ytick.minor.visible": True,
+            "xtick.major.size": 6,
+            "xtick.minor.size": 3,
+            "legend.fontsize": 10,
+            "legend.frameon": False,
+            "lines.linewidth": 1.5,
+            "lines.markersize": 4,
+        }
+    )
