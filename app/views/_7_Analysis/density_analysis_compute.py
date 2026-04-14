@@ -7,21 +7,25 @@ ifs for routing. Three modes: main only, with theory ratio, ratio only.
 from __future__ import annotations
 
 from math import ceil
+from typing import Any, Callable
 
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.figure import Figure
 
 from .utils import (
-    _PALETTE, _COLOR_THEORY,
-    _fig_to_png, _make_title,
+    _COLOR_THEORY,
+    _PALETTE,
     _clean_ratio_ax,
+    _fig_to_png,
+    _make_title,
     _plt_lock,
 )
-
 
 # ---------------------------------------------------------------------------
 # Private helpers
 # ---------------------------------------------------------------------------
+
 
 def _pk_ratio_ylim(ax, bands: list[float]) -> None:
     """Set ylim for a P(k) ratio panel — wider than Cl because scatter is larger."""
@@ -32,11 +36,16 @@ def _pk_ratio_ylim(ax, bands: list[float]) -> None:
 def _snap_title(ref_fld, snap_idx: int) -> str:
     """Return '$a=X.XX$  ($z=Y.YY$)' title string for a given snapshot index."""
     import jax_cosmo as jc
+
     scale_factors = None
     if ref_fld.scale_factors is not None:
         scale_factors = np.asarray(ref_fld.scale_factors)
     if scale_factors is not None:
-        a = float(scale_factors[snap_idx]) if scale_factors.ndim > 0 else float(scale_factors)
+        a = (
+            float(scale_factors[snap_idx])
+            if scale_factors.ndim > 0
+            else float(scale_factors)
+        )
     else:
         a = 1.0
     z = float(jc.utils.a2z(a))
@@ -63,24 +72,28 @@ def _pk_arr_for_snap(pk_sim, snap_idx: int):
 
 
 def _build_pk_main_only(
-    pk_results, theory_pks,
-    ref_fld, layout_params, bands,
-) -> plt.Figure:
+    pk_results,
+    theory_pks,
+    ref_fld,
+    layout_params,
+    bands,
+) -> Figure:
     """P(k) top panels only for each selected snapshot — no ratio row."""
     ref_arr = np.asarray(pk_results[0][1].array)
     n = ref_arr.shape[0] if ref_arr.ndim > 1 else 1
     fig, axes = plt.subplots(
-        1, n,
+        1,
+        n,
         figsize=(float(layout_params["fig_w"]) * n, float(layout_params["main_h"])),
         squeeze=False,
     )
 
     for col in range(n):
         ax = axes[0, col]
-        k  = np.asarray(pk_results[0][1].wavenumber)
+        k = np.asarray(pk_results[0][1].wavenumber)
 
         for ci, (lbl, pk_sim) in enumerate(pk_results):
-            color  = _PALETTE[ci % len(_PALETTE)]
+            color = _PALETTE[ci % len(_PALETTE)]
             pk_arr = _pk_arr_for_snap(pk_sim, col)
             ax.loglog(k, pk_arr, color=color, linewidth=2, label=lbl)
 
@@ -97,36 +110,52 @@ def _build_pk_main_only(
 
 
 def _build_pk_with_theory_ratio(
-    pk_results, theory_pks,
-    ref_fld, layout_params, bands,
-) -> plt.Figure:
+    pk_results,
+    theory_pks,
+    ref_fld,
+    layout_params,
+    bands,
+) -> Figure:
     """P(k) top panels + sim/theory ratio row for each selected snapshot."""
     ref_arr = np.asarray(pk_results[0][1].array)
     n = ref_arr.shape[0] if ref_arr.ndim > 1 else 1
     fig, axes = plt.subplots(
-        2, n,
-        figsize=(float(layout_params["fig_w"]) * n,
-                 float(layout_params["main_h"]) + float(layout_params["ratio_h"])),
+        2,
+        n,
+        figsize=(
+            float(layout_params["fig_w"]) * n,
+            float(layout_params["main_h"]) + float(layout_params["ratio_h"]),
+        ),
         sharex="col",
-        gridspec_kw={"height_ratios": [float(layout_params["main_h"]),
-                                       float(layout_params["ratio_h"])],
-                     "hspace": 0.05},
+        gridspec_kw={
+            "height_ratios": [
+                float(layout_params["main_h"]),
+                float(layout_params["ratio_h"]),
+            ],
+            "hspace": 0.05,
+        },
         squeeze=False,
     )
 
     for col in range(n):
         ax_top = axes[0, col]
         ax_bot = axes[1, col]
-        k      = np.asarray(pk_results[0][1].wavenumber)
+        k = np.asarray(pk_results[0][1].wavenumber)
 
         # Theory
         th = np.asarray(theory_pks[col]) if theory_pks else None
         if th is not None:
-            ax_top.loglog(k, th, color=_COLOR_THEORY, linestyle="--",
-                          linewidth=2, label="Theory (Halofit)")
+            ax_top.loglog(
+                k,
+                th,
+                color=_COLOR_THEORY,
+                linestyle="--",
+                linewidth=2,
+                label="Theory (Halofit)",
+            )
 
         for ci, (lbl, pk_sim) in enumerate(pk_results):
-            color  = _PALETTE[ci % len(_PALETTE)]
+            color = _PALETTE[ci % len(_PALETTE)]
             pk_arr = _pk_arr_for_snap(pk_sim, col)
             ax_top.loglog(k, pk_arr, color=color, linewidth=2, label=lbl)
 
@@ -141,7 +170,7 @@ def _build_pk_with_theory_ratio(
         for ci, (lbl, pk_sim) in enumerate(pk_results):
             if th is None:
                 break
-            color  = _PALETTE[ci % len(_PALETTE)]
+            color = _PALETTE[ci % len(_PALETTE)]
             pk_arr = _pk_arr_for_snap(pk_sim, col)
             ax_bot.semilogx(k, pk_arr / th, color=color, linewidth=2)
 
@@ -161,27 +190,31 @@ def _build_pk_with_theory_ratio(
 
 
 def _build_pk_ratio_only_theory(
-    pk_results, theory_pks,
-    ref_fld, layout_params, bands,
-) -> plt.Figure:
+    pk_results,
+    theory_pks,
+    ref_fld,
+    layout_params,
+    bands,
+) -> Figure:
     """Sim/theory ratio panels only — no main P(k) panel."""
     ref_arr = np.asarray(pk_results[0][1].array)
     n = ref_arr.shape[0] if ref_arr.ndim > 1 else 1
     fig, axes = plt.subplots(
-        1, n,
+        1,
+        n,
         figsize=(float(layout_params["fig_w"]) * n, float(layout_params["ratio_h"])),
         squeeze=False,
     )
 
     for col in range(n):
         ax = axes[0, col]
-        k  = np.asarray(pk_results[0][1].wavenumber)
+        k = np.asarray(pk_results[0][1].wavenumber)
         th = np.asarray(theory_pks[col]) if theory_pks else None
 
         for ci, (lbl, pk_sim) in enumerate(pk_results):
             if th is None:
                 break
-            color  = _PALETTE[ci % len(_PALETTE)]
+            color = _PALETTE[ci % len(_PALETTE)]
             pk_arr = _pk_arr_for_snap(pk_sim, col)
             ax.semilogx(k, pk_arr / th, color=color, linewidth=2, label=lbl)
 
@@ -202,16 +235,17 @@ def _build_pk_ratio_only_theory(
 # Dispatch table
 # ---------------------------------------------------------------------------
 
-PK_BUILDERS = {
+PK_BUILDERS: dict[tuple[bool, bool], Callable[..., Any]] = {
     (False, False): _build_pk_main_only,
-    (True,  False): _build_pk_with_theory_ratio,
-    (True,  True):  _build_pk_ratio_only_theory,
+    (True, False): _build_pk_with_theory_ratio,
+    (True, True): _build_pk_ratio_only_theory,
 }
 
 
 # ---------------------------------------------------------------------------
 # Compute functions
 # ---------------------------------------------------------------------------
+
 
 def compute_pk(
     active_entries: list[dict],
@@ -225,10 +259,10 @@ def compute_pk(
     """
     pk_results = []
     for entry in active_entries:
-        fld    = entry["catalog"].field[0][selected_snaps]
+        fld = entry["catalog"].field[0][selected_snaps]
         pk_sim = fld.power()
         pk_results.append((entry["label"], pk_sim))
-    ref_fld   = active_entries[0]["catalog"].field[0][selected_snaps]
+    ref_fld = active_entries[0]["catalog"].field[0][selected_snaps]
     ref_cosmo = active_entries[0]["catalog"].cosmology[0]
     return pk_results, ref_fld, ref_cosmo
 
@@ -236,7 +270,7 @@ def compute_pk(
 def compute_theory_pk(
     ref_fld,
     ref_cosmo,
-    pk_results: list[tuple[str, object]],
+    pk_results: list[tuple[str, Any]],
     nl_fn_name: str,
 ) -> list | None:
     """Compute theory P(k) for each snapshot present in the reference field.
@@ -247,9 +281,9 @@ def compute_theory_pk(
     import jax
     import jax_cosmo as jc
 
-    ref_pk     = pk_results[0][1]
+    ref_pk = pk_results[0][1]
     ref_pk_arr = np.asarray(ref_pk.array)
-    n_snaps    = ref_pk_arr.shape[0] if ref_pk_arr.ndim > 1 else 1
+    n_snaps = ref_pk_arr.shape[0] if ref_pk_arr.ndim > 1 else 1
 
     sfa = None
     if ref_fld.scale_factors is not None:
@@ -259,8 +293,11 @@ def compute_theory_pk(
 
     theory_pks = []
     for i in range(n_snaps):
-        a_i = (float(sfa[i]) if (sfa is not None and sfa.ndim > 0)
-               else (float(sfa) if sfa is not None else 1.0))
+        a_i = (
+            float(sfa[i])
+            if (sfa is not None and sfa.ndim > 0)
+            else (float(sfa) if sfa is not None else 1.0)
+        )
         th = jax.jit(
             jc.power.nonlinear_matter_power,
             static_argnames=["nonlinear_fn"],
@@ -275,6 +312,7 @@ def compute_theory_pk(
 # All renderers return (png_bytes, fig) on success or (None, None) on failure.
 # The caller is responsible for closing the figure (e.g. after storing it in
 # session state for deferred PDF export via render_save_figure).
+
 
 def render_density_field_map(
     selected_entry: dict,
@@ -292,23 +330,35 @@ def render_density_field_map(
         ``nz_slices``.
     """
     data_arr = np.asarray(plot_field.array)
-    n_plots  = data_arr.shape[0] if data_arr.ndim == 4 else 1
-    ncols    = int(map_params["ncols"])
-    nrows    = max(1, ceil(n_plots / ncols))
-    scale_factors    = float(plot_field.scale_factors)    if plot_field.scale_factors    is not None else None
-    comoving_centers = plot_field.comoving_centers         if plot_field.comoving_centers  is not None else None
-    z_sources        = plot_field.z_sources                if plot_field.z_sources         is not None else None
-    density_width    = plot_field.density_width            if plot_field.density_width      is not None else None
+    n_plots = data_arr.shape[0] if data_arr.ndim == 4 else 1
+    ncols = int(map_params["ncols"])
+    nrows = max(1, ceil(n_plots / ncols))
+    scale_factors = (
+        float(plot_field.scale_factors)
+        if plot_field.scale_factors is not None
+        else None
+    )
+    comoving_centers = (
+        plot_field.comoving_centers if plot_field.comoving_centers is not None else None
+    )
+    z_sources = plot_field.z_sources if plot_field.z_sources is not None else None
+    density_width = (
+        plot_field.density_width if plot_field.density_width is not None else None
+    )
 
     titles = []
     for i in range(n_plots):
-        t = (map_params["title_template"]
-             .replace("%l%", selected_entry["label"])
-             .replace("%i%", str(i))
-             .replace("%a%", f"{scale_factors:.3f}" if scale_factors is not None else "")
-             .replace("%r%", f"{comoving_centers:.3f}" if comoving_centers is not None else "")
-             .replace("%d%", f"{density_width:.3f}" if density_width is not None else "")
-             .replace("%z%", f"{z_sources:.3f}" if z_sources is not None else ""))
+        t = (
+            map_params["title_template"]
+            .replace("%l%", selected_entry["label"])
+            .replace("%i%", str(i))
+            .replace("%a%", f"{scale_factors:.3f}" if scale_factors is not None else "")
+            .replace(
+                "%r%", f"{comoving_centers:.3f}" if comoving_centers is not None else ""
+            )
+            .replace("%d%", f"{density_width:.3f}" if density_width is not None else "")
+            .replace("%z%", f"{z_sources:.3f}" if z_sources is not None else "")
+        )
         t = _make_title(t, plot_field, i)
         titles.append(t)
 
@@ -319,8 +369,10 @@ def render_density_field_map(
                 projected = plot_field.project(nz_slices=int(d_params["nz_slices"]))
                 fig, _ = projected.plot(
                     ncols=ncols,
-                    figsize=(float(map_params["fig_w"]) * ncols,
-                             float(map_params["fig_h"]) * nrows),
+                    figsize=(
+                        float(map_params["fig_w"]) * ncols,
+                        float(map_params["fig_h"]) * nrows,
+                    ),
                     cmap=map_params["cmap"],
                     colorbar=map_params["colorbar"],
                     vmin=map_params["vmin"],
@@ -330,8 +382,10 @@ def render_density_field_map(
             else:
                 fig, _ = plot_field.plot(
                     ncols=ncols,
-                    figsize=(float(map_params["fig_w"]) * ncols,
-                             float(map_params["fig_h"]) * nrows),
+                    figsize=(
+                        float(map_params["fig_w"]) * ncols,
+                        float(map_params["fig_h"]) * nrows,
+                    ),
                     cmap=map_params["cmap"],
                     colorbar=map_params["colorbar"],
                     vmin=map_params["vmin"],
@@ -369,15 +423,17 @@ def render_particle_field_map(
         ``azim``, ``zoom``, ``weights``, ``weights_title``.
     """
     data_arr = np.asarray(plot_field.array)
-    n_plots  = data_arr.shape[0] if data_arr.ndim == 5 else 1
-    ncols    = int(map_params["ncols"])
-    nrows    = max(1, ceil(n_plots / ncols))
+    n_plots = data_arr.shape[0] if data_arr.ndim == 5 else 1
+    ncols = int(map_params["ncols"])
+    nrows = max(1, ceil(n_plots / ncols))
 
     titles = []
     for i in range(n_plots):
-        t = (map_params["title_template"]
-             .replace("%l%", selected_entry["label"])
-             .replace("%i%", str(i)))
+        t = (
+            map_params["title_template"]
+            .replace("%l%", selected_entry["label"])
+            .replace("%i%", str(i))
+        )
         t = _make_title(t, plot_field, i)
         titles.append(t)
 
@@ -386,8 +442,10 @@ def render_particle_field_map(
         try:
             fig, _ = plot_field.plot(
                 ncols=ncols,
-                figsize=(float(map_params["fig_w"]) * ncols,
-                         float(map_params["fig_h"]) * nrows),
+                figsize=(
+                    float(map_params["fig_w"]) * ncols,
+                    float(map_params["fig_h"]) * nrows,
+                ),
                 cmap=map_params["cmap"],
                 colorbar=map_params["colorbar"],
                 vmin=map_params["vmin"],

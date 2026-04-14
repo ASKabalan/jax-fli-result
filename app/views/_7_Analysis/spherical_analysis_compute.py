@@ -8,24 +8,27 @@ field types (spherical density, kappa, flat).
 """
 from __future__ import annotations
 
+from typing import Any, Callable
+
 import matplotlib.gridspec as gridspec
 import matplotlib.lines as mlines
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.figure import Figure
 
 from .utils import (
-    _PALETTE, _COLOR_THEORY,
-    _FLAT_TYPES,
+    _COLOR_THEORY,
+    _PALETTE,
+    _clean_ratio_ax,
     _make_title,
-    _add_shading, _clean_ratio_ax,
     pixel_window_function,
 )
-
 
 # ---------------------------------------------------------------------------
 # Private layout helpers
 # ---------------------------------------------------------------------------
+
 
 def _staircase_coords(n_selected: int) -> tuple[list[tuple[int, int]], int, int]:
     """Return (coords, nrows, ncols) for a lower-triangular staircase layout."""
@@ -55,7 +58,8 @@ def _attach_legend(fig, handles, labels, bands: list[float]) -> None:
             labels.append(f"±{frac*100:.0f}%")
 
     leg = fig.legend(
-        handles, labels,
+        handles,
+        labels,
         loc="upper right",
         bbox_to_anchor=(0.9, 0.9),
         fontsize=12,
@@ -71,7 +75,8 @@ def _attach_legend(fig, handles, labels, bands: list[float]) -> None:
 def _make_inner_gs(outer_gs, row, col, height_ratios):
     """Create a nested GridSpec for one staircase cell."""
     return gridspec.GridSpecFromSubplotSpec(
-        len(height_ratios), 1,
+        len(height_ratios),
+        1,
         subplot_spec=outer_gs[row, col],
         height_ratios=height_ratios,
         hspace=0.05,
@@ -103,27 +108,34 @@ def _cl_slice(cl, shell_idx: int, n_shells: int):
 
 
 def _build_cl_main_only(
-    spectra_results, theory_result,
-    layout_params, title_template, bands,
-) -> plt.Figure:
+    spectra_results,
+    theory_result,
+    layout_params,
+    title_template,
+    bands,
+) -> Figure:
     """Staircase Cl panels only — no ratio rows."""
     ns = _n_shells(spectra_results)
-    n  = ns
+    n = ns
     coords, nrows, ncols = _staircase_coords(n)
     height_ratios = [float(layout_params["spec_main_h"])]
 
-    fig = plt.figure(figsize=(max(12, float(layout_params["spec_fig_w"]) * ncols),
-                               height_ratios[0] * nrows))
+    fig = plt.figure(
+        figsize=(
+            max(12, float(layout_params["spec_fig_w"]) * ncols),
+            height_ratios[0] * nrows,
+        )
+    )
     outer_gs = gridspec.GridSpec(nrows, ncols, figure=fig, wspace=0.08, hspace=0.25)
 
     handles_out, labels_out = [], []
     for i, (row, col) in enumerate(coords):
-        inner_gs  = _make_inner_gs(outer_gs, row, col, height_ratios)
+        inner_gs = _make_inner_gs(outer_gs, row, col, height_ratios)
         ax = fig.add_subplot(inner_gs[0, 0])
 
         for ci, (lbl, cl) in enumerate(spectra_results):
             color = _PALETTE[ci % len(_PALETTE)]
-            cl_s  = _cl_slice(cl, i, ns)
+            cl_s = _cl_slice(cl, i, ns)
             label = f"{lbl} (Ref)" if ci == 0 else lbl
             cl_s.plot(ax=ax, logx=True, logy=True, label=label, color=color)
 
@@ -143,29 +155,37 @@ def _build_cl_main_only(
 
 
 def _build_cl_with_ref_ratio(
-    spectra_results, theory_result,
-    layout_params, title_template, bands,
-) -> plt.Figure:
+    spectra_results,
+    theory_result,
+    layout_params,
+    title_template,
+    bands,
+) -> Figure:
     """Staircase Cl panels + ratio vs reference row."""
     ns = _n_shells(spectra_results)
-    n  = ns
+    n = ns
     coords, nrows, ncols = _staircase_coords(n)
     coords_set = set(coords)
-    height_ratios = [float(layout_params["spec_main_h"]), float(layout_params["spec_ratio_h"])]
+    height_ratios = [
+        float(layout_params["spec_main_h"]),
+        float(layout_params["spec_ratio_h"]),
+    ]
     figsize_y = sum(height_ratios) * nrows
 
-    fig = plt.figure(figsize=(max(12, float(layout_params["spec_fig_w"]) * ncols), figsize_y))
+    fig = plt.figure(
+        figsize=(max(12, float(layout_params["spec_fig_w"]) * ncols), figsize_y)
+    )
     outer_gs = gridspec.GridSpec(nrows, ncols, figure=fig, wspace=0.08, hspace=0.25)
 
     handles_out, labels_out = [], []
     for i, (row, col) in enumerate(coords):
         is_bottom = (row + 1, col) not in coords_set
-        inner_gs  = _make_inner_gs(outer_gs, row, col, height_ratios)
+        inner_gs = _make_inner_gs(outer_gs, row, col, height_ratios)
 
         ax_main = fig.add_subplot(inner_gs[0, 0])
         for ci, (lbl, cl) in enumerate(spectra_results):
             color = _PALETTE[ci % len(_PALETTE)]
-            cl_s  = _cl_slice(cl, i, ns)
+            cl_s = _cl_slice(cl, i, ns)
             label = f"{lbl} (Ref)" if ci == 0 else lbl
             cl_s.plot(ax=ax_main, logx=True, logy=True, label=label, color=color)
         ax_main.grid(True, which="both", ls="--", alpha=0.2)
@@ -184,7 +204,7 @@ def _build_cl_with_ref_ratio(
         ref_s = _cl_slice(ref_cl, i, ns)
         for ci, (lbl, cl) in enumerate(spectra_results[1:], 1):
             color = _PALETTE[ci % len(_PALETTE)]
-            cl_s  = _cl_slice(cl, i, ns)
+            cl_s = _cl_slice(cl, i, ns)
             (cl_s / ref_s).plot(ax=ax_r, logx=True, color=color, legend=False)
         ylabel = "Ratio\n(vs Ref)" if col == 0 else ""
         _clean_ratio_ax(ax_r, ylabel, bands)
@@ -200,33 +220,49 @@ def _build_cl_with_ref_ratio(
 
 
 def _build_cl_with_theory_ratio(
-    spectra_results, theory_result,
-    layout_params, title_template, bands,
-) -> plt.Figure:
+    spectra_results,
+    theory_result,
+    layout_params,
+    title_template,
+    bands,
+) -> Figure:
     """Staircase Cl panels + ratio vs theory row."""
     ns = _n_shells(spectra_results)
-    n  = ns
+    n = ns
     coords, nrows, ncols = _staircase_coords(n)
     coords_set = set(coords)
-    height_ratios = [float(layout_params["spec_main_h"]), float(layout_params["spec_ratio_h"])]
+    height_ratios = [
+        float(layout_params["spec_main_h"]),
+        float(layout_params["spec_ratio_h"]),
+    ]
     figsize_y = sum(height_ratios) * nrows
 
-    fig = plt.figure(figsize=(max(12, float(layout_params["spec_fig_w"]) * ncols), figsize_y))
+    fig = plt.figure(
+        figsize=(max(12, float(layout_params["spec_fig_w"]) * ncols), figsize_y)
+    )
     outer_gs = gridspec.GridSpec(nrows, ncols, figure=fig, wspace=0.08, hspace=0.25)
 
     handles_out, labels_out = [], []
     for i, (row, col) in enumerate(coords):
         is_bottom = (row + 1, col) not in coords_set
-        inner_gs  = _make_inner_gs(outer_gs, row, col, height_ratios)
+        inner_gs = _make_inner_gs(outer_gs, row, col, height_ratios)
 
         ax_main = fig.add_subplot(inner_gs[0, 0])
-        print(f"shape theory_result {theory_result.array.shape} and {theory_result.shape}")
+        print(
+            f"shape theory_result {theory_result.array.shape} and {theory_result.shape}"
+        )
         th_s = theory_result[i] if theory_result.array.ndim > 1 else theory_result
-        th_s.plot(ax=ax_main, logx=True, logy=True,
-                  label="Theory", color=_COLOR_THEORY, linestyle="--")
+        th_s.plot(
+            ax=ax_main,
+            logx=True,
+            logy=True,
+            label="Theory",
+            color=_COLOR_THEORY,
+            linestyle="--",
+        )
         for ci, (lbl, cl) in enumerate(spectra_results):
             color = _PALETTE[ci % len(_PALETTE)]
-            cl_s  = _cl_slice(cl, i, ns)
+            cl_s = _cl_slice(cl, i, ns)
             label = f"{lbl} (Ref)" if ci == 0 else lbl
             cl_s.plot(ax=ax_main, logx=True, logy=True, label=label, color=color)
         ax_main.grid(True, which="both", ls="--", alpha=0.2)
@@ -243,7 +279,7 @@ def _build_cl_with_theory_ratio(
         ax_t = fig.add_subplot(inner_gs[1, 0], sharex=ax_main)
         for ci, (lbl, cl) in enumerate(spectra_results):
             color = _PALETTE[ci % len(_PALETTE)]
-            cl_s  = _cl_slice(cl, i, ns)
+            cl_s = _cl_slice(cl, i, ns)
             (cl_s / th_s).plot(ax=ax_t, logx=True, color=color, legend=False)
         ylabel = "Ratio\n(vs Theory)" if col == 0 else ""
         _clean_ratio_ax(ax_t, ylabel, bands)
@@ -259,12 +295,15 @@ def _build_cl_with_theory_ratio(
 
 
 def _build_cl_with_both_ratios(
-    spectra_results, theory_result,
-    layout_params, title_template, bands,
-) -> plt.Figure:
+    spectra_results,
+    theory_result,
+    layout_params,
+    title_template,
+    bands,
+) -> Figure:
     """Staircase Cl panels + ratio vs ref row + ratio vs theory row."""
     ns = _n_shells(spectra_results)
-    n  = ns
+    n = ns
     coords, nrows, ncols = _staircase_coords(n)
     coords_set = set(coords)
     height_ratios = [
@@ -274,21 +313,29 @@ def _build_cl_with_both_ratios(
     ]
     figsize_y = sum(height_ratios) * nrows
 
-    fig = plt.figure(figsize=(max(12, float(layout_params["spec_fig_w"]) * ncols), figsize_y))
+    fig = plt.figure(
+        figsize=(max(12, float(layout_params["spec_fig_w"]) * ncols), figsize_y)
+    )
     outer_gs = gridspec.GridSpec(nrows, ncols, figure=fig, wspace=0.08, hspace=0.25)
 
     handles_out, labels_out = [], []
     for i, (row, col) in enumerate(coords):
         is_bottom = (row + 1, col) not in coords_set
-        inner_gs  = _make_inner_gs(outer_gs, row, col, height_ratios)
+        inner_gs = _make_inner_gs(outer_gs, row, col, height_ratios)
 
         ax_main = fig.add_subplot(inner_gs[0, 0])
         th_s = theory_result[i] if theory_result.array.ndim > 1 else theory_result
-        th_s.plot(ax=ax_main, logx=True, logy=True,
-                  label="Theory", color=_COLOR_THEORY, linestyle="--")
+        th_s.plot(
+            ax=ax_main,
+            logx=True,
+            logy=True,
+            label="Theory",
+            color=_COLOR_THEORY,
+            linestyle="--",
+        )
         for ci, (lbl, cl) in enumerate(spectra_results):
             color = _PALETTE[ci % len(_PALETTE)]
-            cl_s  = _cl_slice(cl, i, ns)
+            cl_s = _cl_slice(cl, i, ns)
             label = f"{lbl} (Ref)" if ci == 0 else lbl
             cl_s.plot(ax=ax_main, logx=True, logy=True, label=label, color=color)
         ax_main.grid(True, which="both", ls="--", alpha=0.2)
@@ -307,7 +354,7 @@ def _build_cl_with_both_ratios(
         ref_s = _cl_slice(ref_cl, i, ns)
         for ci, (lbl, cl) in enumerate(spectra_results[1:], 1):
             color = _PALETTE[ci % len(_PALETTE)]
-            cl_s  = _cl_slice(cl, i, ns)
+            cl_s = _cl_slice(cl, i, ns)
             (cl_s / ref_s).plot(ax=ax_r, logx=True, color=color, legend=False)
         ylabel_r = "Ratio\n(vs Ref)" if col == 0 else ""
         _clean_ratio_ax(ax_r, ylabel_r, bands)
@@ -319,7 +366,7 @@ def _build_cl_with_both_ratios(
         ax_t = fig.add_subplot(inner_gs[2, 0], sharex=ax_main)
         for ci, (lbl, cl) in enumerate(spectra_results):
             color = _PALETTE[ci % len(_PALETTE)]
-            cl_s  = _cl_slice(cl, i, ns)
+            cl_s = _cl_slice(cl, i, ns)
             (cl_s / th_s).plot(ax=ax_t, logx=True, color=color, legend=False)
         ylabel_t = "Ratio\n(vs Theory)" if col == 0 else ""
         _clean_ratio_ax(ax_t, ylabel_t, bands)
@@ -335,31 +382,36 @@ def _build_cl_with_both_ratios(
 
 
 def _build_cl_ratio_only_ref(
-    spectra_results, theory_result,
-    layout_params, title_template, bands,
-) -> plt.Figure:
+    spectra_results,
+    theory_result,
+    layout_params,
+    title_template,
+    bands,
+) -> Figure:
     """Ratio vs reference panels only — no main Cl panel."""
     ns = _n_shells(spectra_results)
-    n  = ns
+    n = ns
     coords, nrows, ncols = _staircase_coords(n)
     coords_set = set(coords)
     height_ratios = [float(layout_params["spec_ratio_h"])]
     figsize_y = height_ratios[0] * nrows
 
-    fig = plt.figure(figsize=(max(12, float(layout_params["spec_fig_w"]) * ncols), figsize_y))
+    fig = plt.figure(
+        figsize=(max(12, float(layout_params["spec_fig_w"]) * ncols), figsize_y)
+    )
     outer_gs = gridspec.GridSpec(nrows, ncols, figure=fig, wspace=0.08, hspace=0.25)
 
     handles_out, labels_out = [], []
     for i, (row, col) in enumerate(coords):
         is_bottom = (row + 1, col) not in coords_set
-        inner_gs  = _make_inner_gs(outer_gs, row, col, height_ratios)
+        inner_gs = _make_inner_gs(outer_gs, row, col, height_ratios)
 
         ax = fig.add_subplot(inner_gs[0, 0])
         _, ref_cl = spectra_results[0]
         ref_s = _cl_slice(ref_cl, i, ns)
         for ci, (lbl, cl) in enumerate(spectra_results[1:], 1):
             color = _PALETTE[ci % len(_PALETTE)]
-            cl_s  = _cl_slice(cl, i, ns)
+            cl_s = _cl_slice(cl, i, ns)
             (cl_s / ref_s).plot(ax=ax, logx=True, color=color, legend=False, label=lbl)
 
         ax.set_title(_make_title(title_template, spectra_results[0][1], i))
@@ -380,30 +432,35 @@ def _build_cl_ratio_only_ref(
 
 
 def _build_cl_ratio_only_theory(
-    spectra_results, theory_result,
-    layout_params, title_template, bands,
-) -> plt.Figure:
+    spectra_results,
+    theory_result,
+    layout_params,
+    title_template,
+    bands,
+) -> Figure:
     """Ratio vs theory panels only — no main Cl panel."""
     ns = _n_shells(spectra_results)
-    n  = ns
+    n = ns
     coords, nrows, ncols = _staircase_coords(n)
     coords_set = set(coords)
     height_ratios = [float(layout_params["spec_ratio_h"])]
     figsize_y = height_ratios[0] * nrows
 
-    fig = plt.figure(figsize=(max(12, float(layout_params["spec_fig_w"]) * ncols), figsize_y))
+    fig = plt.figure(
+        figsize=(max(12, float(layout_params["spec_fig_w"]) * ncols), figsize_y)
+    )
     outer_gs = gridspec.GridSpec(nrows, ncols, figure=fig, wspace=0.08, hspace=0.25)
 
     handles_out, labels_out = [], []
     for i, (row, col) in enumerate(coords):
         is_bottom = (row + 1, col) not in coords_set
-        inner_gs  = _make_inner_gs(outer_gs, row, col, height_ratios)
+        inner_gs = _make_inner_gs(outer_gs, row, col, height_ratios)
 
         ax = fig.add_subplot(inner_gs[0, 0])
         th_s = theory_result[i] if theory_result.array.ndim > 1 else theory_result
         for ci, (lbl, cl) in enumerate(spectra_results):
             color = _PALETTE[ci % len(_PALETTE)]
-            cl_s  = _cl_slice(cl, i, ns)
+            cl_s = _cl_slice(cl, i, ns)
             (cl_s / th_s).plot(ax=ax, logx=True, color=color, legend=False, label=lbl)
 
         ax.set_title(_make_title(title_template, spectra_results[0][1], i))
@@ -424,35 +481,42 @@ def _build_cl_ratio_only_theory(
 
 
 def _build_cl_ratio_only_both(
-    spectra_results, theory_result,
-    layout_params, title_template, bands,
-) -> plt.Figure:
+    spectra_results,
+    theory_result,
+    layout_params,
+    title_template,
+    bands,
+) -> Figure:
     """Both ratio rows (vs ref and vs theory) — no main Cl panel."""
     ns = _n_shells(spectra_results)
-    n  = ns
+    n = ns
     coords, nrows, ncols = _staircase_coords(n)
     coords_set = set(coords)
     rh = float(layout_params["spec_ratio_h"])
     height_ratios = [rh, rh]
     figsize_y = sum(height_ratios) * nrows
 
-    fig = plt.figure(figsize=(max(12, float(layout_params["spec_fig_w"]) * ncols), figsize_y))
+    fig = plt.figure(
+        figsize=(max(12, float(layout_params["spec_fig_w"]) * ncols), figsize_y)
+    )
     outer_gs = gridspec.GridSpec(nrows, ncols, figure=fig, wspace=0.08, hspace=0.25)
 
     handles_out, labels_out = [], []
     for i, (row, col) in enumerate(coords):
         is_bottom = (row + 1, col) not in coords_set
-        inner_gs  = _make_inner_gs(outer_gs, row, col, height_ratios)
+        inner_gs = _make_inner_gs(outer_gs, row, col, height_ratios)
 
-        th_s  = theory_result[i] if theory_result.array.ndim > 1 else theory_result
+        th_s = theory_result[i] if theory_result.array.ndim > 1 else theory_result
         _, ref_cl = spectra_results[0]
         ref_s = _cl_slice(ref_cl, i, ns)
 
         ax_r = fig.add_subplot(inner_gs[0, 0])
         for ci, (lbl, cl) in enumerate(spectra_results[1:], 1):
             color = _PALETTE[ci % len(_PALETTE)]
-            cl_s  = _cl_slice(cl, i, ns)
-            (cl_s / ref_s).plot(ax=ax_r, logx=True, color=color, legend=False, label=lbl)
+            cl_s = _cl_slice(cl, i, ns)
+            (cl_s / ref_s).plot(
+                ax=ax_r, logx=True, color=color, legend=False, label=lbl
+            )
         ax_r.set_title(_make_title(title_template, spectra_results[0][1], i))
         ylabel_r = "Ratio\n(vs Ref)" if col == 0 else ""
         _clean_ratio_ax(ax_r, ylabel_r, bands)
@@ -466,7 +530,7 @@ def _build_cl_ratio_only_both(
         ax_t = fig.add_subplot(inner_gs[1, 0], sharex=ax_r)
         for ci, (lbl, cl) in enumerate(spectra_results):
             color = _PALETTE[ci % len(_PALETTE)]
-            cl_s  = _cl_slice(cl, i, ns)
+            cl_s = _cl_slice(cl, i, ns)
             (cl_s / th_s).plot(ax=ax_t, logx=True, color=color, legend=False)
         ylabel_t = "Ratio\n(vs Theory)" if col == 0 else ""
         _clean_ratio_ax(ax_t, ylabel_t, bands)
@@ -485,20 +549,21 @@ def _build_cl_ratio_only_both(
 # Dispatch table
 # ---------------------------------------------------------------------------
 
-_CL_BUILDERS = {
+_CL_BUILDERS: dict[tuple[bool, bool, bool], Callable[..., Any]] = {
     (False, False, False): _build_cl_main_only,
-    (True,  False, False): _build_cl_with_ref_ratio,
-    (False, True,  False): _build_cl_with_theory_ratio,
-    (True,  True,  False): _build_cl_with_both_ratios,
-    (True,  False, True):  _build_cl_ratio_only_ref,
-    (False, True,  True):  _build_cl_ratio_only_theory,
-    (True,  True,  True):  _build_cl_ratio_only_both,
+    (True, False, False): _build_cl_with_ref_ratio,
+    (False, True, False): _build_cl_with_theory_ratio,
+    (True, True, False): _build_cl_with_both_ratios,
+    (True, False, True): _build_cl_ratio_only_ref,
+    (False, True, True): _build_cl_ratio_only_theory,
+    (True, True, True): _build_cl_ratio_only_both,
 }
 
 
 # ---------------------------------------------------------------------------
 # Pixel window helper
 # ---------------------------------------------------------------------------
+
 
 def _apply_pixwin(
     theory_result,
@@ -516,8 +581,9 @@ def _apply_pixwin(
     nside_val = getattr(ref_field_obj, "nside", None)
     if nside_val is not None:
         import healpy as hp
+
         pw_full = np.asarray(hp.pixwin(int(nside_val), lmax=int(lmax)))
-        pw      = pw_full[int(lmin):]
+        pw = pw_full[int(lmin) :]
         return theory_result.replace(array=theory_result.array * pw**2)
 
     flatsky_npix = getattr(ref_field_obj, "flatsky_npix", None)
@@ -556,12 +622,13 @@ def _slice_results_to_shells(
 # Cl computation
 # ---------------------------------------------------------------------------
 
+
 def compute_cls(
     active_entries: list[dict],
     lmin: int,
     lmax: int,
-    selected_shells : slice,
-) -> list[tuple[str, object]]:
+    selected_shells: slice,
+) -> list[tuple[str, Any]]:
     """Compute angular Cl for any spherical or flat field type.
 
     Density fields (SphericalDensity / FlatDensity) are contrast-normalised
@@ -572,12 +639,12 @@ def compute_cls(
     spectra_results = []
     for entry in active_entries:
         fld = entry["catalog"].field[0][selected_shells]
-        ft  = entry["field_type"]
+        ft = entry["field_type"]
         if ft in ("SphericalDensity"):
             fld = (fld / fld.array.mean(axis=-1, keepdims=True)) - 1.0
         elif ft not in ("SphericalKappaField"):
             raise ValueError(f"Unsupported field type for Cl computation: {ft}")
-        cl = fld.angular_cl(lmax=int(lmax), method="healpy")[..., int(lmin):]
+        cl = fld.angular_cl(lmax=int(lmax), method="healpy")[..., int(lmin) :]
         spectra_results.append((entry["label"], cl))
     return spectra_results
 
@@ -585,6 +652,7 @@ def compute_cls(
 # ---------------------------------------------------------------------------
 # Theory computation
 # ---------------------------------------------------------------------------
+
 
 def compute_theory_cl(
     ref_obj,
@@ -618,20 +686,27 @@ def compute_theory_cl(
     import jax_fli as jfli
 
     ref_field_obj = ref_obj.field[0]
-    ref_cosmo     = ref_obj.cosmology[0]
+    ref_cosmo = ref_obj.cosmology[0]
     nl_fn = jc.power.halofit if nl_fn_name == "halofit" else "linear"
 
     if probe_type == "density":
         theory_result = jfli.compute_theory_cl_for_density(
-            ref_cosmo, ref_field_obj, ells,
-            nonlinear_fn=nl_fn, nz_zmax=float(nz_zmax),
+            ref_cosmo,
+            ref_field_obj,
+            ells,
+            nonlinear_fn=nl_fn,
+            nz_zmax=float(nz_zmax),
         )
     else:
         from jax_fli.data import get_stage3_nz_shear
+
         z_src = get_stage3_nz_shear() if probe_type == "s3" else list(z_sources)
         theory_result = jfli.compute_theory_cl(
-            ref_cosmo, ells, z_src,
-            probe_type="weak_lensing", nonlinear_fn=nl_fn,
+            ref_cosmo,
+            ells,
+            z_src,
+            probe_type="weak_lensing",
+            nonlinear_fn=nl_fn,
         )
 
     if apply_pixwin and theory_result is not None:
