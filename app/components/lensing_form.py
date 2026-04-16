@@ -15,15 +15,23 @@ def render_lensing_form(defaults: dict | None = None, prefix: str = "") -> dict:
         default_nz = defaults.get("nz_shear", ["s3"])
         if isinstance(default_nz, str):
             default_nz = [default_nz]
-        is_s3_default = len(default_nz) == 1 and str(default_nz[0]).lower().startswith(
-            "s3"
+        _first = str(default_nz[0]).lower() if default_nz else "s3"
+        is_s3_default = len(default_nz) == 1 and _first.startswith("s3")
+        is_des_y3_default = len(default_nz) == 1 and (
+            _first.startswith("des_y3") or _first.startswith("desy3")
         )
-        default_mode = "s3 preset" if is_s3_default else "custom z values"
+        if is_s3_default:
+            default_mode = "s3 preset"
+        elif is_des_y3_default:
+            default_mode = "des_y3 preset"
+        else:
+            default_mode = "custom z values"
 
+        _modes = ["s3 preset", "des_y3 preset", "custom z values"]
         mode = st.radio(
             "nz_shear mode",
-            ["s3 preset", "custom z values"],
-            index=0 if default_mode == "s3 preset" else 1,
+            _modes,
+            index=_modes.index(default_mode),
             horizontal=True,
             key=f"{prefix}nz_shear_mode",
         )
@@ -36,11 +44,21 @@ def render_lensing_form(defaults: dict | None = None, prefix: str = "") -> dict:
                 key=f"{prefix}nz_shear_s3",
             )
             nz_shear = [s3_val]
+        elif mode == "des_y3 preset":
+            des_val = st.text_input(
+                "nz_shear (des_y3 notation)",
+                value=str(default_nz[0]) if is_des_y3_default else "des_y3",
+                help="e.g. des_y3, des_y3[0], des_y3[1:3], des_y3[:2], des_y3[::2]",
+                key=f"{prefix}nz_shear_des_y3",
+            )
+            nz_shear = [des_val]
         else:
             raw = render_dynamic_list(
                 "nz_shear z-values",
                 f"{prefix}nz_shear_custom",
-                [] if is_s3_default else [float(v) for v in default_nz],
+                []
+                if (is_s3_default or is_des_y3_default)
+                else [float(v) for v in default_nz],
                 cast_fn=float,
             )
             nz_shear = [str(v) for v in raw] if raw else ["s3"]
