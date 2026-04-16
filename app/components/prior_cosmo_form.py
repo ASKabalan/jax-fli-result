@@ -32,7 +32,9 @@ def render_prior_cosmo_form(
     """
     defaults = defaults or {}
 
-    def _sampled_row(label: str, key: str, default_val: float, default_min: float, default_max: float):
+    def _sampled_row(
+        label: str, key: str, default_val: float, default_min: float, default_max: float
+    ):
         """One sampled-parameter row: value | Fixed checkbox, then prior [min, max]."""
         val_col, fix_col = st.columns([2, 1])
         with val_col:
@@ -44,7 +46,11 @@ def render_prior_cosmo_form(
             )
         with fix_col:
             st.markdown("&nbsp;", unsafe_allow_html=True)
-            fixed = st.checkbox("Fixed", value=bool(defaults.get(f"{key}_fixed", False)), key=f"{prefix}{key}_fixed")
+            fixed = st.checkbox(
+                "Fixed",
+                value=bool(defaults.get(f"{key}_fixed", False)),
+                key=f"{prefix}{key}_fixed",
+            )
         prior_min = prior_max = None
         if not fixed:
             pm_col, px_col = st.columns(2)
@@ -98,11 +104,17 @@ def render_prior_cosmo_form(
         wa_col, w0_col = st.columns(2)
         with wa_col:
             wa = st.number_input(
-                "wa", value=float(defaults.get("wa", 0.0)), format="%.4f", key=f"{prefix}wa"
+                "wa",
+                value=float(defaults.get("wa", 0.0)),
+                format="%.4f",
+                key=f"{prefix}wa",
             )
         with w0_col:
             w0 = st.number_input(
-                "w0", value=float(defaults.get("w0", -1.0)), format="%.4f", key=f"{prefix}w0"
+                "w0",
+                value=float(defaults.get("w0", -1.0)),
+                format="%.4f",
+                key=f"{prefix}w0",
             )
 
         nu_col, k_col = st.columns(2)

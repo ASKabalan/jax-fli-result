@@ -129,8 +129,14 @@ def render_integration_form(
                 key=f"{prefix}nb_steps",
                 help="NBody timesteps. Not used for LPT.",
             )
-            ts_near = render_dynamic_list("ts_near", f"{prefix}ts_near", [], cast_fn=float) or None
-            ts_far = render_dynamic_list("ts_far", f"{prefix}ts_far", [], cast_fn=float) or None
+            ts_near = (
+                render_dynamic_list("ts_near", f"{prefix}ts_near", [], cast_fn=float)
+                or None
+            )
+            ts_far = (
+                render_dynamic_list("ts_far", f"{prefix}ts_far", [], cast_fn=float)
+                or None
+            )
             if show_density_widths:
                 st.caption(
                     "density_widths: one value for all shells, one per shell, "
@@ -171,7 +177,9 @@ def render_integration_form(
         ]
         _SHELL_KEYS = ["comoving", "equal_vol", "a", "growth"]
         _default_shell = defaults.get("shell_spacing", "comoving")
-        _shell_idx = _SHELL_KEYS.index(_default_shell) if _default_shell in _SHELL_KEYS else 0
+        _shell_idx = (
+            _SHELL_KEYS.index(_default_shell) if _default_shell in _SHELL_KEYS else 0
+        )
         _shell_label = st.selectbox(
             "shell_spacing",
             _SHELL_LABELS,
@@ -183,7 +191,11 @@ def render_integration_form(
         _SOLVER_LABELS = ["Kick-Drift-Kick", "Drift-Kick-Drift", "BullFrog"]
         _SOLVER_KEYS = ["kdk", "dkd", "bf"]
         _default_solver = defaults.get("solver", "kdk")
-        _solver_idx = _SOLVER_KEYS.index(_default_solver) if _default_solver in _SOLVER_KEYS else 0
+        _solver_idx = (
+            _SOLVER_KEYS.index(_default_solver)
+            if _default_solver in _SOLVER_KEYS
+            else 0
+        )
         _solver_label = st.selectbox(
             "PM solver",
             _SOLVER_LABELS,

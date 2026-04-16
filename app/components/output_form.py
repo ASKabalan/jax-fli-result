@@ -53,7 +53,9 @@ def render_output_form(
         if name_template:
             _nt_key = f"{prefix}name_template"
             if _nt_key not in st.session_state:
-                st.session_state[_nt_key] = defaults.get("name_template", DEFAULT_NAME_TEMPLATE)
+                st.session_state[_nt_key] = defaults.get(
+                    "name_template", DEFAULT_NAME_TEMPLATE
+                )
             _nt_col, _nt_btn = st.columns([3, 1])
             with _nt_col:
                 nt = st.text_input(

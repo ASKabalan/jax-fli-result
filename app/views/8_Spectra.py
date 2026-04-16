@@ -61,7 +61,9 @@ with c2:
         with sc1:
             recursive = st.checkbox("recursive", value=False, key="spec_recursive")
         with sc2:
-            force_regen = st.checkbox("force_regen", value=False, key="spec_force_regen")
+            force_regen = st.checkbox(
+                "force_regen", value=False, key="spec_force_regen"
+            )
         with sc3:
             normalization = st.selectbox(
                 "normalization",
@@ -73,25 +75,31 @@ with c2:
         st.subheader("Angular C_ell")
 
         st.markdown("**Flat-sky**")
-        ell_edges = render_dynamic_list("ell_edges", "spec_ell_edges", [], cast_fn=float) or None
+        ell_edges = (
+            render_dynamic_list("ell_edges", "spec_ell_edges", [], cast_fn=float)
+            or None
+        )
 
         st.markdown("**Spherical (HEALPix)**")
         use_lmax = st.checkbox("Override lmax", value=False, key="spec_use_lmax")
         lmax = None
         if use_lmax:
             lmax = st.number_input(
-                "lmax", min_value=1, value=511, key="spec_lmax",
-                help="Default: 3*nside-1"
+                "lmax",
+                min_value=1,
+                value=511,
+                key="spec_lmax",
+                help="Default: 3*nside-1",
             )
-        method = st.selectbox(
-            "SHT method", ["healpy", "jax"], key="spec_method"
-        )
+        method = st.selectbox("SHT method", ["healpy", "jax"], key="spec_method")
 
     with st.container(border=True):
         st.subheader("3D P(k)")
 
         kedges = render_dynamic_list("kedges", "spec_kedges", [], cast_fn=float) or None
-        multipoles = render_dynamic_list("multipoles", "spec_multipoles", ["0"], cast_fn=int) or [0]
+        multipoles = render_dynamic_list(
+            "multipoles", "spec_multipoles", ["0"], cast_fn=int
+        ) or [0]
 
         lo1, lo2, lo3 = st.columns(3)
         with lo1:

@@ -74,15 +74,23 @@ with c1:
         else:
             fp1, fp2 = st.columns(2)
             with fp1:
-                _fp_h = st.number_input("H (pixels)", min_value=1, value=512, key="tpcf_fp_h")
+                _fp_h = st.number_input(
+                    "H (pixels)", min_value=1, value=512, key="tpcf_fp_h"
+                )
             with fp2:
-                _fp_w = st.number_input("W (pixels)", min_value=1, value=512, key="tpcf_fp_w")
+                _fp_w = st.number_input(
+                    "W (pixels)", min_value=1, value=512, key="tpcf_fp_w"
+                )
             flatsky_npix = [_fp_h, _fp_w]
             ff1, ff2 = st.columns(2)
             with ff1:
-                _ff_h = st.number_input("H (deg)", min_value=1, value=10, key="tpcf_ff_h")
+                _ff_h = st.number_input(
+                    "H (deg)", min_value=1, value=10, key="tpcf_ff_h"
+                )
             with ff2:
-                _ff_w = st.number_input("W (deg)", min_value=1, value=10, key="tpcf_ff_w")
+                _ff_w = st.number_input(
+                    "W (deg)", min_value=1, value=10, key="tpcf_ff_w"
+                )
             field_size = [_ff_h, _ff_w]
 
         lmax_col, fsky_col = st.columns(2)
@@ -90,7 +98,12 @@ with c1:
             lmax = st.number_input("lmax", min_value=1, value=2047, key="tpcf_lmax")
         with fsky_col:
             f_sky = st.number_input(
-                "f_sky", min_value=0.0, max_value=1.0, value=1.0, format="%.3f", key="tpcf_f_sky"
+                "f_sky",
+                min_value=0.0,
+                max_value=1.0,
+                value=1.0,
+                format="%.3f",
+                key="tpcf_f_sky",
             )
 
         sigma_e_col, nl_col = st.columns(2)
