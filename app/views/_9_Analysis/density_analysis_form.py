@@ -184,7 +184,6 @@ def pk_tab(
                     theory_pks = None
                     if compare_theory_pk:
                         with st.spinner("Computing theory P(k)..."):
-                            print(f"pk_results {pk_results}")
                             theory_pks = compute_theory_pk(
                                 ref_fld_pk, ref_cosmo_pk, pk_results, pk_nl_fn
                             )
