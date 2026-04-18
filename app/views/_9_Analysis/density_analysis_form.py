@@ -69,7 +69,7 @@ def pk_tab(
                 "Snapshot index (numpy-style)",
                 value=":",
                 key="analysis_snap_index",
-                disabled=_single_snap,
+                disabled=_single_snap,  # TODO sometimes disable with a false positive
                 help="Examples: ':' (all), '0:3', '-1:'. Selects which snapshots to plot.",
             )
 
@@ -104,6 +104,12 @@ def pk_tab(
                 value=100,
                 step=25,
                 key="analysis_pk_dpi",
+            )
+            title_template = st.text_input(
+                "Panel title template",
+                value="χ %r% Mpc/h",
+                key="analysis_title_template",
+                help="%r% = comoving distance  |  %z% = redshift  |  %a% = scale factor",
             )
 
             st.markdown("**Shading bands** (set to 0 to disable)")
@@ -147,39 +153,48 @@ def pk_tab(
     with spec_plot_pk:
         selected_snaps = parse_slice(snap_index)
         if pk_compute_btn:
-            if precomputed:
-                pk_results = [
-                    (e["label"], e["catalog"].field[0][selected_snaps])
-                    for e in active_entries
-                ]
-                ref_fld_pk = active_entries[0]["catalog"].field[0][selected_snaps]
-                ref_cosmo_pk = active_entries[0]["catalog"].cosmology[0]
-            else:
-                all_types_pk = {e["field_type"] for e in active_entries}
-                if all_types_pk != _DENSITY_3D:
-                    st.error(
-                        "3D P(k) only supported when all active fields are DensityField. "
-                        f"Found: {', '.join(sorted(all_types_pk))}"
-                    )
-                    pk_results = ref_fld_pk = ref_cosmo_pk = None
+            try:
+                if precomputed:
+                    pk_results = [
+                        (e["label"], e["catalog"].field[0][selected_snaps])
+                        for e in active_entries
+                    ]
+                    ref_fld_pk = active_entries[0]["catalog"].field[0][selected_snaps]
+                    ref_cosmo_pk = active_entries[0]["catalog"].cosmology[0]
                 else:
-                    with st.spinner("Computing 3D power spectra..."):
-                        pk_results, ref_fld_pk, ref_cosmo_pk = compute_pk(
-                            active_entries, selected_snaps
+                    all_types_pk = {e["field_type"] for e in active_entries}
+                    if all_types_pk != _DENSITY_3D:
+                        st.error(
+                            "3D P(k) only supported when all active fields are DensityField. "
+                            f"Found: {', '.join(sorted(all_types_pk))}"
                         )
+                        pk_results = ref_fld_pk = ref_cosmo_pk = None
+                    else:
+                        with st.spinner("Computing 3D power spectra..."):
+                            pk_results, ref_fld_pk, ref_cosmo_pk = compute_pk(
+                                active_entries, selected_snaps
+                            )
 
-            if pk_results:
-                theory_pks = None
-                if compare_theory_pk:
-                    with st.spinner("Computing theory P(k)..."):
-                        theory_pks = compute_theory_pk(
-                            ref_fld_pk, ref_cosmo_pk, pk_results, pk_nl_fn
+                if pk_results:
+                    if len(set(s[1].spectra.shape[0] for s in pk_results)) > 1:  # type: ignore
+                        st.error(
+                            "Power spectra have different number of shells after slicing — cannot compare."
                         )
-                st.session_state["analysis_pk_results"] = (
-                    pk_results,
-                    theory_pks,
-                    ref_fld_pk,
-                )
+                        st.stop()
+                    theory_pks = None
+                    if compare_theory_pk:
+                        with st.spinner("Computing theory P(k)..."):
+                            print(f"pk_results {pk_results}")
+                            theory_pks = compute_theory_pk(
+                                ref_fld_pk, ref_cosmo_pk, pk_results, pk_nl_fn
+                            )
+                    st.session_state["analysis_pk_results"] = (
+                        pk_results,
+                        theory_pks,
+                        ref_fld_pk,
+                    )
+            except Exception as e:
+                print(f"[density_analysis] DensityField pk compute failed: {e}")
 
         pk_cached = st.session_state.get("analysis_pk_results")
         if (pk_compute_btn or pk_redraw_btn) and pk_cached:
@@ -202,6 +217,7 @@ def pk_tab(
                         _pk_results,
                         _theory_pks,
                         _ref_fld_pk,
+                        title_template,
                         layout_params,
                         pk_bands,
                     )

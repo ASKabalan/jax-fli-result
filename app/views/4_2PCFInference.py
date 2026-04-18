@@ -7,7 +7,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 import streamlit as st
 
 from app.components.command_builder import build_command
-from app.components.lensing_form import render_lensing_form
 from app.components.misc_forms import render_2pcf_observable_form
 from app.components.output_form import render_2pcf_config_form
 from app.components.prior_cosmo_form import render_prior_cosmo_form

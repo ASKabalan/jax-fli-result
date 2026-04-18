@@ -21,7 +21,9 @@ extract = render_extract_form(prefix="ext_")
 params = {**slurm}
 params.update(
     {
-        "path": extract["input_dir"] if extract["source"] == "Local directory" else None,
+        "path": extract["input_dir"]
+        if extract["source"] == "Local directory"
+        else None,
         "repo_id": extract["repo_id"],
         "config": extract["config"],
         "set_name": extract["set_name"],

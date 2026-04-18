@@ -35,7 +35,7 @@ with c2:
         prefix="samp_",
         default_sim_type="lensing",
         default_nb_shells=8,
-        default_nb_steps=100,
+        default_nb_steps=30,
     )
 
 with c1:
@@ -48,7 +48,16 @@ with c1:
         prefix="samp_",
         px=slurm["pdim"][0],
         py=slurm["pdim"][1],
-        defaults={"mx": 64, "my": 64, "mz": 64, "bx": 250.0, "by": 250.0, "bz": 250.0, "nside": 64},
+        simulation_type=integration["sim_mode"],
+        defaults={
+            "mx": 64,
+            "my": 64,
+            "mz": 64,
+            "bx": 250.0,
+            "by": 250.0,
+            "bz": 250.0,
+            "nside": 64,
+        },
     )
 
 with c3:
@@ -65,13 +74,20 @@ with c3:
             "sigma_e", min_value=0.0, value=0.26, format="%.4f", key="samp_sigma_e"
         )
         batch_id = st.number_input(
-            "batch_id", min_value=0, value=0, key="samp_batch_id",
+            "batch_id",
+            min_value=0,
+            value=0,
+            key="samp_batch_id",
             help="Single batch index for this job (no sweeping — script separately).",
         )
 
 with top_right:
     render_stepping_plot(
-        {"t0": integration["t0"], "t1": integration["t1"], "nb_steps": integration["nb_steps"]},
+        {
+            "t0": integration["t0"],
+            "t1": integration["t1"],
+            "nb_steps": integration["nb_steps"],
+        },
         {"nb_shells": integration["nb_shells"]},
         sim["box_size"],
         sim["observer_position"],
@@ -103,7 +119,11 @@ params.update(
         "drift_on_lightcone": integration["drift_on_lightcone"],
         "min_width": integration["min_width"],
         # Lensing
-        **{k: v for k, v in integration.items() if k in ("nz_shear", "min_z", "max_z", "n_integrate")},
+        **{
+            k: v
+            for k, v in integration.items()
+            if k in ("nz_shear", "min_z", "max_z", "n_integrate")
+        },
         # Simulation settings
         "mesh_size": sim["mesh_size"],
         "box_size": sim["box_size"],
@@ -114,6 +134,9 @@ params.update(
         "kernel_width_arcmin": sim["kernel_width_arcmin"],
         "enable_x64": sim["enable_x64"],
         "nside": sim.get("nside"),
+        "flatsky_npix": sim.get("flatsky_npix"),
+        "field_size": sim.get("field_size"),
+        "density": sim.get("density", False),
         # Samples-specific
         "path": output["output_dir"],
         "model": model,

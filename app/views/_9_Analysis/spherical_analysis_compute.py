@@ -16,7 +16,6 @@ import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.figure import Figure
-import streamlit as st
 
 from .utils import (
     _COLOR_THEORY,
@@ -634,12 +633,14 @@ def compute_cls(
     fields (including SphericalKappaField) use
     ``angular_cl(lmax=…, method='healpy')``.
     """
+    from jax_fli.units import OVERDENSITY
+
     spectra_results = []
     for entry in active_entries:
         fld = entry["catalog"].field[0][selected_shells]
         ft = entry["field_type"]
         if ft in ("SphericalDensity"):
-            fld = (fld / fld.array.mean(axis=-1, keepdims=True)) - 1.0
+            fld = fld.to(OVERDENSITY, normalization="per_plane")
         elif ft not in ("SphericalKappaField"):
             raise ValueError(f"Unsupported field type for Cl computation: {ft}")
         cl = fld.angular_cl(lmax=int(lmax), method="healpy")[..., int(lmin) :]
@@ -651,6 +652,7 @@ def compute_cls(
 # Theory computation
 # ---------------------------------------------------------------------------
 
+
 def compute_theory_cl(
     ref_obj,
     ells,
@@ -661,6 +663,7 @@ def compute_theory_cl(
     apply_pixwin: bool = False,
     lmin: int = 0,
     lmax: int = 500,
+    selected_shells=None,
 ) -> object | None:
     """Compute theory Cl for any probe type.
 
@@ -678,11 +681,17 @@ def compute_theory_cl(
         Multiply theory by the pixel window squared if True.
     lmin, lmax:
         Ell range, used for pixel-window slicing in the spherical branch.
+    selected_shells:
+        Shell selection (slice or int) applied to the reference field and to
+        n(z) arrays for lensing probes so theory is computed only for the
+        shells actually displayed.
     """
     import jax_cosmo as jc
     import jax_fli as jfli
 
     ref_field_obj = ref_obj.field[0]
+    if selected_shells is not None:
+        ref_field_obj = ref_field_obj[selected_shells]
     ref_cosmo = ref_obj.cosmology[0]
     nl_fn = jc.power.halofit if nl_fn_name == "halofit" else "linear"
 
@@ -695,9 +704,21 @@ def compute_theory_cl(
             nz_zmax=float(nz_zmax),
         )
     else:
-        from jax_fli.data import get_stage3_nz_shear
+        from jax_fli.data import get_des_y3_nz_shear, get_stage3_nz_shear
 
-        z_src = get_stage3_nz_shear() if probe_type == "s3" else list(z_sources)
+        if probe_type == "point sources":
+            z_src = list(z_sources)
+        elif probe_type == "s3":
+            z_src = get_stage3_nz_shear()
+            if selected_shells is not None:
+                z_src = z_src[selected_shells]
+        elif probe_type == "desY3":
+            z_src = get_des_y3_nz_shear()
+            if selected_shells is not None:
+                z_src = z_src[selected_shells]
+        else:
+            raise ValueError(f"Unsupported probe type: {probe_type}")
+
         theory_result = jfli.compute_theory_cl(
             ref_cosmo,
             ells,

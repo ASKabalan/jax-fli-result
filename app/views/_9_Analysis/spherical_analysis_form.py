@@ -67,19 +67,15 @@ def render_field_map(
     (png_bytes, fig) on success; (None, None) on failure.
     The caller is responsible for closing the figure after use.
     """
-    data_arr = np.asarray(plot_field.array)
-    n_maps = 1 if data_arr.ndim <= 1 else int(np.prod(data_arr.shape[:-1]))
+    n_maps = plot_field.shape[0] if plot_field.is_batched() else 1
     ncols = int(map_params["ncols"])
     nrows = max(1, ceil(n_maps / ncols))
 
     titles = []
     for i in range(n_maps):
-        t = (
-            map_params["title_template"]
-            .replace("%l%", selected_entry["label"])
-            .replace("%i%", str(i))
+        t = _make_title(
+            map_params["title_template"], plot_field, i, label=selected_entry["label"]
         )
-        t = _make_title(t, plot_field, i)
         titles.append(t)
 
     fig = None
@@ -215,7 +211,6 @@ def cl_tab(
             )
 
             # --- Probe settings (expander, visible when compare_theory) ---
-            # TODO add probe DESY3
             probe_type = "s3" if is_kappa else "density"
             nz_zmax = 2.0
             apply_pixwin = False
@@ -224,9 +219,9 @@ def cl_tab(
                 with st.expander("Probe settings", expanded=True):
                     # Density is not meaningful for kappa fields
                     _probe_options = (
-                        ["s3", "point sources"]
+                        ["s3", "desY3", "point sources"]
                         if is_kappa
-                        else ["density", "s3", "point sources"]  # TODO add DESY3 here
+                        else ["density", "s3", "desY3", "point sources"]
                     )
                     _pt_key = "analysis_probe_type"
                     # Reset if stored value is no longer a valid option
@@ -239,6 +234,7 @@ def cl_tab(
                         help=(
                             "density: matter Cl via Limber  |  "
                             "s3: weak-lensing Stage-III n(z)  |  "
+                            "desY3: weak-lensing DES Y3 n(z)  |  "
                             "point sources: explicit source redshifts"
                         ),
                     )
@@ -419,7 +415,10 @@ def cl_tab(
             else:
                 with st.spinner("Computing angular power spectra..."):
                     spectra_results = _compute.compute_cls(
-                        active_entries, int(lmin), int(lmax), selected_shells
+                        active_entries,
+                        int(lmin),
+                        int(lmax),
+                        selected_shells,  # type: ignore
                     )
 
             # Slice to selected shells now — builders receive pre-sliced data
@@ -480,6 +479,7 @@ def cl_tab(
                         apply_pixwin,
                         int(lmin),
                         int(lmax),
+                        selected_shells=selected_shells,
                     )
 
             st.session_state["analysis_spectra_results"] = spectra_results

@@ -36,7 +36,6 @@ with c2:
         default_sim_type="nbody",
         default_nb_shells=10,
         default_nb_steps=30,
-        show_density_widths=True,
     )
 
 with c1:
@@ -49,7 +48,15 @@ with c1:
         prefix="sim_",
         px=slurm["pdim"][0],
         py=slurm["pdim"][1],
-        defaults={"mx": 64, "my": 64, "mz": 64, "bx": 1000.0, "by": 1000.0, "bz": 1000.0},
+        simulation_type=integration["sim_mode"],
+        defaults={
+            "mx": 64,
+            "my": 64,
+            "mz": 64,
+            "bx": 1000.0,
+            "by": 1000.0,
+            "bz": 1000.0,
+        },
     )
 
 with c3:
@@ -64,7 +71,11 @@ with c3:
 with top_right:
     if integration["sim_mode"] in ("pm", "lensing"):
         render_stepping_plot(
-            {"t0": integration["t0"], "t1": integration["t1"], "nb_steps": integration["nb_steps"]},
+            {
+                "t0": integration["t0"],
+                "t1": integration["t1"],
+                "nb_steps": integration["nb_steps"],
+            },
             {"nb_shells": integration["nb_shells"]},
             sim["box_size"],
             sim["observer_position"],
@@ -96,7 +107,11 @@ params = {
     "min_width": integration["min_width"],
     "nb_shells": integration["nb_shells_for_cmd"],
     # Lensing (only populated when sim_mode == "lensing")
-    **{k: v for k, v in integration.items() if k in ("nz_shear", "min_z", "max_z", "n_integrate")},
+    **{
+        k: v
+        for k, v in integration.items()
+        if k in ("nz_shear", "min_z", "max_z", "n_integrate")
+    },
     # Simulation settings
     "mesh_size": sim["mesh_size"],
     "box_size": sim["box_size"],

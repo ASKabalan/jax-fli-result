@@ -91,20 +91,23 @@ def _fig_to_pdf(fig, dpi: int = 100) -> bytes:
     return buf.getvalue()
 
 
-def _make_title(template: str, field, idx: int) -> str:
-    """Substitute %r%, %z%, %a% in a title template with field metadata."""
-    title = template
+def _make_title(template: str, field, idx: int, *, label: str = "") -> str:
+    """Substitute all placeholders in a title template with field metadata."""
+    title = template.replace("%l%", label).replace("%i%", str(idx))
     for attr, key, fmt in [
-        ("comoving_centers", "%r%", ".1f"),
+        ("comoving_centers", "%r%", ".3f"),
         ("z_sources", "%z%", ".3f"),
-        ("scale_factors", "%a%", ".4f"),
+        ("scale_factors", "%a%", ".3f"),
+        ("density_width", "%d%", ".3f"),
     ]:
         if key not in title:
             continue
         arr = getattr(field, attr, None)
         if arr is not None:
             try:
-                title = title.replace(key, format(float(np.asarray(arr)[idx]), fmt))
+                title = title.replace(
+                    key, format(float(np.atleast_1d(np.asarray(arr))[idx]), fmt)
+                )
             except Exception:
                 pass
     return title

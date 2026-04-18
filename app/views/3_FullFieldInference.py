@@ -57,9 +57,14 @@ with c1:
         prefix="inf_sim_",
         px=slurm["pdim"][0],
         py=slurm["pdim"][1],
+        simulation_type=integration["sim_mode"],
         defaults={
-            "mx": 16, "my": 16, "mz": 16,
-            "bx": 1000.0, "by": 1000.0, "bz": 1000.0,
+            "mx": 16,
+            "my": 16,
+            "mz": 16,
+            "bx": 1000.0,
+            "by": 1000.0,
+            "bz": 1000.0,
             "enable_x64": True,
         },
     )
@@ -74,7 +79,11 @@ with c3:
 # ── Stepping plot ─────────────────────────────────────────────────────────────
 with top_right:
     render_stepping_plot(
-        {"t0": integration["t0"], "t1": integration["t1"], "nb_steps": integration["nb_steps"]},
+        {
+            "t0": integration["t0"],
+            "t1": integration["t1"],
+            "nb_steps": integration["nb_steps"],
+        },
         {"nb_shells": integration["nb_shells"]},
         sim["box_size"],
         sim["observer_position"],
@@ -86,7 +95,11 @@ with top_right:
 params = {**slurm}
 params.update(
     {
-        **{k: v for k, v in integration.items() if k in ("nz_shear", "min_z", "max_z", "n_integrate")},
+        **{
+            k: v
+            for k, v in integration.items()
+            if k in ("nz_shear", "min_z", "max_z", "n_integrate")
+        },
         # Integration
         "lpt_order": integration["lpt_order"],
         "nb_steps": integration["nb_steps"],

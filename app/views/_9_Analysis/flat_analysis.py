@@ -11,7 +11,6 @@ from __future__ import annotations
 from math import ceil
 
 import matplotlib.pyplot as plt
-import numpy as np
 
 from .utils import _fig_to_png, _make_title, _plt_lock
 
@@ -42,19 +41,17 @@ def render_flat_field_map(
     (png_bytes, fig) on success; (None, None) on failure.
     The caller is responsible for closing the figure after use.
     """
-    data_arr = np.asarray(plot_field.array)
-    n_maps = 1 if data_arr.ndim <= 1 else int(np.prod(data_arr.shape[:-1]))
+    n_maps = plot_field.shape[0] if plot_field.is_batched() else 1
     ncols = int(map_params["ncols"])
     nrows = max(1, ceil(n_maps / ncols))
-
     titles = []
     for i in range(n_maps):
-        t = (
-            map_params["title_template"]
-            .replace("%l%", selected_entry["label"])
-            .replace("%i%", str(i))
+        t = _make_title(
+            map_params["title_template"],
+            plot_field,
+            i,
+            label=map_params.get("label", ""),
         )
-        t = _make_title(t, plot_field, i)
         titles.append(t)
 
     fig = None

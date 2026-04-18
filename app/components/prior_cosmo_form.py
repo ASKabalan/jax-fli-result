@@ -153,7 +153,7 @@ def render_prior_cosmo_form(
                         value=defaults.get("initial_condition", ""),
                         key=f"{prefix}ic_path",
                     )
-                    initial_condition = ic_path.strip() if ic_path.strip() else None
+                    initial_condition = ic_path.strip() if ic_path else None
             else:
                 pg_col1, pg_col2 = st.columns(2)
                 with pg_col1:

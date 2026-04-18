@@ -9,6 +9,7 @@ def render_simulation_settings(
     defaults: dict | None = None,
     px: int = 1,
     py: int = 1,
+    simulation_type: str = "pm",
 ) -> dict:
     """Render the simulation settings form (single-point, no gridding).
 
@@ -50,31 +51,58 @@ def render_simulation_settings(
 
         mc1, mc2, mc3 = st.columns(3)
         with mc1:
-            mx = st.number_input("MX", value=int(defaults.get("mx", 64)), key=f"{prefix}mx")
+            mx = st.number_input(
+                "MX", value=int(defaults.get("mx", 64)), key=f"{prefix}mx"
+            )
         with mc2:
-            my = st.number_input("MY", value=int(defaults.get("my", 64)), key=f"{prefix}my")
+            my = st.number_input(
+                "MY", value=int(defaults.get("my", 64)), key=f"{prefix}my"
+            )
         with mc3:
-            mz = st.number_input("MZ", value=int(defaults.get("mz", 64)), key=f"{prefix}mz")
+            mz = st.number_input(
+                "MZ", value=int(defaults.get("mz", 64)), key=f"{prefix}mz"
+            )
         mesh_size = [mx, my, mz]
 
         st.write("**box_size**")
         bc1, bc2, bc3 = st.columns(3)
         with bc1:
-            bx = st.number_input("BX", value=float(defaults.get("bx", 250.0)), key=f"{prefix}bx")
+            bx = st.number_input(
+                "BX", value=float(defaults.get("bx", 250.0)), key=f"{prefix}bx"
+            )
         with bc2:
-            by = st.number_input("BY", value=float(defaults.get("by", 250.0)), key=f"{prefix}by")
+            by = st.number_input(
+                "BY", value=float(defaults.get("by", 250.0)), key=f"{prefix}by"
+            )
         with bc3:
-            bz = st.number_input("BZ", value=float(defaults.get("bz", 250.0)), key=f"{prefix}bz")
+            bz = st.number_input(
+                "BZ", value=float(defaults.get("bz", 250.0)), key=f"{prefix}bz"
+            )
         box_size = [bx, by, bz]
 
         st.write("**Observer position**")
         oc1, oc2, oc3 = st.columns(3)
         with oc1:
-            obs_x = st.number_input("OX", value=float(defaults.get("obs_x", 0.5)), format="%.2f", key=f"{prefix}obs_x")
+            obs_x = st.number_input(
+                "OX",
+                value=float(defaults.get("obs_x", 0.5)),
+                format="%.2f",
+                key=f"{prefix}obs_x",
+            )
         with oc2:
-            obs_y = st.number_input("OY", value=float(defaults.get("obs_y", 0.5)), format="%.2f", key=f"{prefix}obs_y")
+            obs_y = st.number_input(
+                "OY",
+                value=float(defaults.get("obs_y", 0.5)),
+                format="%.2f",
+                key=f"{prefix}obs_y",
+            )
         with oc3:
-            obs_z = st.number_input("OZ", value=float(defaults.get("obs_z", 0.5)), format="%.2f", key=f"{prefix}obs_z")
+            obs_z = st.number_input(
+                "OZ",
+                value=float(defaults.get("obs_z", 0.5)),
+                format="%.2f",
+                key=f"{prefix}obs_z",
+            )
 
         seed = st.number_input(
             "seed",
@@ -98,7 +126,9 @@ def render_simulation_settings(
 
         _out_options = ["Spherical (nside)", "Flat sky", "Density", "Particles"]
         _default_out = defaults.get("output_target", "Spherical (nside)")
-        _out_idx = _out_options.index(_default_out) if _default_out in _out_options else 0
+        _out_idx = (
+            _out_options.index(_default_out) if _default_out in _out_options else 0
+        )
         output_target = st.radio(
             "Output target",
             _out_options,
@@ -148,23 +178,37 @@ def render_simulation_settings(
             st.write("**Pixels (H × W)**")
             fp1, fp2 = st.columns(2)
             with fp1:
-                _fp_h = st.number_input("H", min_value=1, value=64, key=f"{prefix}flatsky_h")
+                _fp_h = st.number_input(
+                    "H", min_value=1, value=64, key=f"{prefix}flatsky_h"
+                )
             with fp2:
-                _fp_w = st.number_input("W", min_value=1, value=64, key=f"{prefix}flatsky_w")
+                _fp_w = st.number_input(
+                    "W", min_value=1, value=64, key=f"{prefix}flatsky_w"
+                )
             flatsky_npix = [_fp_h, _fp_w]
 
             st.write("**Field size (H × W) deg**")
             ff1, ff2 = st.columns(2)
             with ff1:
-                _ff_h = st.number_input("H", min_value=1, value=10, key=f"{prefix}field_h")
+                _ff_h = st.number_input(
+                    "H", min_value=1, value=10, key=f"{prefix}field_h"
+                )
             with ff2:
-                _ff_w = st.number_input("W", min_value=1, value=10, key=f"{prefix}field_w")
+                _ff_w = st.number_input(
+                    "W", min_value=1, value=10, key=f"{prefix}field_w"
+                )
             field_size = [_ff_h, _ff_w]
             if any(v > 10 for v in field_size):
                 st.warning("Flat sky approximation is only reliable up to ~10 degrees.")
 
         elif output_target == "Density":
             density = True
+            if simulation_type == "lensing":
+                st.error("Lensing simulations require spherical or flat sky outputs.")
+        else:
+            if simulation_type == "lensing":
+                st.error("Lensing simulations require spherical or flat sky outputs.")
+
         # Particles: no extra inputs needed
 
         enable_x64 = st.checkbox(
@@ -192,16 +236,13 @@ def render_simulation_settings(
         "paint_nside": paint_nside,
         "kernel_width_arcmin": kernel_width_arcmin,
     }
-    if show_output_target:
-        result.update(
-            {
-                "output_target": output_target,
-                "nside": nside,
-                "flatsky_npix": flatsky_npix,
-                "field_size": field_size,
-                "density": density,
-            }
-        )
-    if show_nside and not show_output_target:
-        result["nside"] = nside
+    result.update(
+        {
+            "output_target": output_target,
+            "nside": nside,
+            "flatsky_npix": flatsky_npix,
+            "field_size": field_size,
+            "density": density,
+        }
+    )
     return result

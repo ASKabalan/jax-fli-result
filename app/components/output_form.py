@@ -304,9 +304,7 @@ def render_2pcf_config_form(
 
         observable = st.text_input(
             "observable path",
-            value=defaults.get(
-                "observable", "observables/BORN_SMALL_spectra.parquet"
-            ),
+            value=defaults.get("observable", "observables/BORN_SMALL_spectra.parquet"),
             key=f"{prefix}observable",
             help="Parquet catalog containing a PowerSpectrum field with observed C_ell.",
         )

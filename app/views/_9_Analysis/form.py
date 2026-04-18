@@ -112,7 +112,9 @@ def _update_name(paths: list[str], new_names: list[str]):
                 catalog = jfli.io.Catalog.from_dataset(entry)
                 field = catalog.field[0]
                 field = field.replace(name=new_name)
-                jfli.io.Catalog(field=field, cosmology=catalog.cosmology[0]).to_parquet(path)
+                jfli.io.Catalog(field=field, cosmology=catalog.cosmology[0]).to_parquet(
+                    path
+                )
                 messages.append(f"Renamed to '{new_name}' in {Path(path).name}")
         st.session_state["_rename_info"] = (
             "\n".join(messages) if messages else "No renames needed."
@@ -573,10 +575,13 @@ def _render_field_map_section(entries: list[dict]) -> None:
                     )
                 else:  # flat types
                     from . import flat_analysis
+
                     png, fig = flat_analysis.render_flat_field_map(
                         selected_entry, plot_field, map_params
                     )
-                    print(f"[form] Flat field map rendered: png size = {len(png) if png else 'None'}, fig = {fig}")
+                    print(
+                        f"[form] Flat field map rendered: png size = {len(png) if png else 'None'}, fig = {fig}"
+                    )
 
                 if png is not None:
                     st.session_state["analysis_field_png"] = png

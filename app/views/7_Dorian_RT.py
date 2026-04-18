@@ -32,9 +32,7 @@ lensing = render_lensing_form(prefix="dor_")
 
 with st.container(border=True):
     st.subheader("Dorian RT-specific")
-    input_path = st.text_input(
-        "input", value="results/cosmology_runs", key="dor_input"
-    )
+    input_path = st.text_input("input", value="results/cosmology_runs", key="dor_input")
     output_path = st.text_input(
         "output", value="results/lensing/multi_shell_raytrace", key="dor_output"
     )

@@ -109,17 +109,16 @@ def render_integration_form(
                 help="NBody timesteps. Not used for LPT.",
             )
             ts = render_dynamic_list("ts", f"{prefix}ts", [], cast_fn=float) or None
-            if show_density_widths:
-                st.caption(
-                    "density_widths: one value for all shells, one per shell, "
-                    "or empty (auto-computed from ts)"
+            st.caption(
+                "density_widths: one value for all shells, one per shell, "
+                "or empty (auto-computed from ts)"
+            )
+            density_widths = (
+                render_dynamic_list(
+                    "density_widths", f"{prefix}density_widths", [], cast_fn=float
                 )
-                density_widths = (
-                    render_dynamic_list(
-                        "density_widths", f"{prefix}density_widths", [], cast_fn=float
-                    )
-                    or None
-                )
+                or None
+            )
 
         else:  # Near and Far lists
             nb_steps = st.number_input(

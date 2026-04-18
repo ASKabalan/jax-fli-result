@@ -121,13 +121,21 @@ _INFER_SPEC = [
 
 # Per-subcommand script specs (what goes AFTER the `--`).
 _SUBCOMMAND_SPECS: dict[str, list] = {
-    "simulate": _SIM_SETTINGS_SPEC + _INTEGRATION_SPEC + _LENSING_SPEC + _COSMO_SPEC + [
+    "simulate": _SIM_SETTINGS_SPEC
+    + _INTEGRATION_SPEC
+    + _LENSING_SPEC
+    + _COSMO_SPEC
+    + [
         ("output", str, "sim_output.parquet"),
         ("name", "optional_str", None),
         ("perf", bool, False),
         ("iterations", int, 5),
     ],
-    "samples": _SIM_SETTINGS_SPEC + _INTEGRATION_SPEC + _LENSING_SPEC + _PRIOR_SPEC + [
+    "samples": _SIM_SETTINGS_SPEC
+    + _INTEGRATION_SPEC
+    + _LENSING_SPEC
+    + _PRIOR_SPEC
+    + [
         ("path", str, "test_fli_samples"),
         ("model", str, "full"),
         ("sigma-e", float, 0.26),
@@ -135,11 +143,18 @@ _SUBCOMMAND_SPECS: dict[str, list] = {
         ("batch-id", int, 0),
         ("initial-condition", "optional_str", None),
     ],
-    "infer": _SIM_SETTINGS_SPEC + _INTEGRATION_SPEC + _LENSING_SPEC + _PRIOR_SPEC + _INFER_SPEC + [
+    "infer": _SIM_SETTINGS_SPEC
+    + _INTEGRATION_SPEC
+    + _LENSING_SPEC
+    + _PRIOR_SPEC
+    + _INFER_SPEC
+    + [
         ("observable", str, ""),
         ("path", str, "results/inference_runs"),
     ],
-    "2pcf": _LENSING_SPEC + _PRIOR_SPEC + [
+    "2pcf": _LENSING_SPEC
+    + _PRIOR_SPEC
+    + [
         ("observable", str, ""),
         ("path", str, "results/2pcf_inference"),
         ("nside", "optional_int", None),
@@ -172,12 +187,14 @@ _SUBCOMMAND_SPECS: dict[str, list] = {
         ("ddof", int, 0),
         ("enable-x64", bool, False),
     ],
-    "born-rt": _LENSING_SPEC + [
+    "born-rt": _LENSING_SPEC
+    + [
         ("input", str, "results/cosmology_runs"),
         ("output", str, "results/lensing/multi_shell"),
         ("enable-x64", bool, False),
     ],
-    "dorian-rt": _LENSING_SPEC + [
+    "dorian-rt": _LENSING_SPEC
+    + [
         ("input", str, "results/cosmology_runs"),
         ("output", str, "results/lensing/multi_shell_raytrace"),
         ("rt-interp", str, "bilinear"),
@@ -207,7 +224,9 @@ def _to_param_key(flag: str) -> str:
     return flag.lower().replace("-", "_")
 
 
-def _emit(parts: list[str], spec: list, params: dict, positional_first: str | None = None) -> None:
+def _emit(
+    parts: list[str], spec: list, params: dict, positional_first: str | None = None
+) -> None:
     """Append CLI tokens for each entry in ``spec`` to ``parts``.
 
     If ``positional_first`` is set, the matching spec entry is emitted as a
@@ -258,6 +277,8 @@ def build_command(subcommand: str, params: dict) -> str:
 
     # fli-spectra takes `folder` positionally; everything else takes --flag VALUE.
     positional_first = "folder" if subcommand == "spectra" else None
-    _emit(parts, _SUBCOMMAND_SPECS[subcommand], params, positional_first=positional_first)
+    _emit(
+        parts, _SUBCOMMAND_SPECS[subcommand], params, positional_first=positional_first
+    )
 
     return " ".join(parts)
