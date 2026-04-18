@@ -22,20 +22,20 @@ lensing = render_lensing_form(prefix="born_")
 
 with st.container(border=True):
     st.subheader("Born RT-specific")
-    input_dir = st.text_input(
-        "input_dir", value="results/cosmology_runs", key="born_input_dir"
+    input_path = st.text_input(
+        "input", value="results/cosmology_runs", key="born_input"
     )
-    output_dir = st.text_input(
-        "output_dir", value="results/lensing/multi_shell", key="born_output_dir"
+    output_path = st.text_input(
+        "output", value="results/lensing/multi_shell", key="born_output"
     )
     enable_x64 = st.checkbox("enable_x64", key="born_enable_x64")
 
-# Build command
+# Build command — keys mirror _SUBCOMMAND_SPECS["born-rt"] in command_builder.py
 params = {**slurm, **lensing}
 params.update(
     {
-        "input_dir": input_dir,
-        "output_dir": output_dir,
+        "input": input_path,
+        "output": output_path,
         "enable_x64": enable_x64,
     }
 )

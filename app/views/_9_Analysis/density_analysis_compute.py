@@ -12,7 +12,6 @@ from typing import Any, Callable
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.figure import Figure
-
 from .utils import (
     _COLOR_THEORY,
     _PALETTE,
@@ -333,18 +332,10 @@ def render_density_field_map(
     n_plots = data_arr.shape[0] if data_arr.ndim == 4 else 1
     ncols = int(map_params["ncols"])
     nrows = max(1, ceil(n_plots / ncols))
-    scale_factors = (
-        float(plot_field.scale_factors)
-        if plot_field.scale_factors is not None
-        else None
-    )
-    comoving_centers = (
-        plot_field.comoving_centers if plot_field.comoving_centers is not None else None
-    )
-    z_sources = plot_field.z_sources if plot_field.z_sources is not None else None
-    density_width = (
-        plot_field.density_width if plot_field.density_width is not None else None
-    )
+    scale_factors = plot_field.scale_factors
+    comoving_centers = plot_field.comoving_centers
+    z_sources = plot_field.z_sources
+    density_width = plot_field.density_width
 
     titles = []
     for i in range(n_plots):
@@ -352,12 +343,12 @@ def render_density_field_map(
             map_params["title_template"]
             .replace("%l%", selected_entry["label"])
             .replace("%i%", str(i))
-            .replace("%a%", f"{scale_factors:.3f}" if scale_factors is not None else "")
+            .replace("%a%", f"{scale_factors[i]:.3f}" if scale_factors is not None else "")
             .replace(
-                "%r%", f"{comoving_centers:.3f}" if comoving_centers is not None else ""
+                "%r%", f"{comoving_centers[i]:.3f}" if comoving_centers is not None else ""
             )
-            .replace("%d%", f"{density_width:.3f}" if density_width is not None else "")
-            .replace("%z%", f"{z_sources:.3f}" if z_sources is not None else "")
+            .replace("%d%", f"{density_width[i]:.3f}" if density_width is not None else "")
+            .replace("%z%", f"{z_sources[i]:.3f}" if z_sources is not None else "")
         )
         t = _make_title(t, plot_field, i)
         titles.append(t)
@@ -438,6 +429,7 @@ def render_particle_field_map(
         titles.append(t)
 
     fig = None
+    print(f"field is {plot_field}")
     with _plt_lock:
         try:
             fig, _ = plot_field.plot(

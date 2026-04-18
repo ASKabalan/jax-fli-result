@@ -39,11 +39,12 @@ def render_integration_form(
         simulation_type, nb_shells, nb_steps, ts, ts_near, ts_far,
         density_widths, nb_shells_for_cmd, min_width, drift_on_lightcone,
         shell_spacing, solver, time_stepping, lpt_order, t0, t1, interp,
-        dealiased, exact_growth, laplace_fd, gradient_order,
+        dealiased, exact_growth, laplace_fd, gradient_order.
+        shell_spacing replaces the deprecated equal_vol flag.
         + lensing keys (nz_shear, min_z, max_z, n_integrate) when lensing.
     """
     defaults = defaults or {}
-    _sim_type_map = {"LPT": "lpt", "PM": "nbody", "Lensing": "lensing"}
+    _sim_type_map = {"LPT": "lpt", "PM": "pm", "Lensing": "lensing"}
     _sim_type_labels = list(_sim_type_map.keys())
     _default_sim_label = {v: k for k, v in _sim_type_map.items()}.get(
         defaults.get("simulation_type", default_sim_type), "Lensing"
@@ -61,7 +62,7 @@ def render_integration_form(
             key=f"{prefix}simulation_type_radio",
         )
         simulation_type = _sim_type_map[_sim_type_label]
-        nbody_active = simulation_type in ("nbody", "lensing")
+        nbody_active = simulation_type in ("pm", "lensing")
 
         st.divider()
 
@@ -162,12 +163,6 @@ def render_integration_form(
             value=bool(defaults.get("drift_on_lightcone", False)),
             key=f"{prefix}drift_on_lightcone",
         )
-        equal_vol = st.checkbox(
-            "equal_vol",
-            value=bool(defaults.get("equal_vol", False)),
-            key=f"{prefix}equal_vol",
-            help="Equal-volume shell partitioning",
-        )
 
         _SHELL_LABELS = [
             "r (comoving distance)",
@@ -228,7 +223,7 @@ def render_integration_form(
             lpt_order = st.number_input(
                 "LPT order",
                 min_value=1,
-                max_value=3,
+                max_value=2,
                 value=int(defaults.get("lpt_order", 2)),
                 key=f"{prefix}lpt_order",
             )
@@ -248,14 +243,12 @@ def render_integration_form(
                 min_value=0.001,
                 value=float(defaults.get("t1", 1.0)),
                 format="%.4f",
-                disabled=not nbody_active,
                 key=f"{prefix}t1",
             )
         with p4:
             interp = st.selectbox(
                 "interp",
                 ["none", "onion", "telephoto"],
-                disabled=not nbody_active,
                 key=f"{prefix}interp",
             )
 
@@ -296,7 +289,7 @@ def render_integration_form(
             lensing = render_lensing_form(prefix=prefix)
 
     return {
-        "simulation_type": simulation_type,
+        "sim_mode": simulation_type,
         "nb_shells": nb_shells,
         "nb_steps": nb_steps,
         "ts": ts,
@@ -306,7 +299,6 @@ def render_integration_form(
         "nb_shells_for_cmd": nb_shells_for_cmd,
         "min_width": min_width,
         "drift_on_lightcone": drift_on_lightcone,
-        "equal_vol": equal_vol,
         "shell_spacing": shell_spacing,
         "solver": solver,
         "time_stepping": time_stepping,

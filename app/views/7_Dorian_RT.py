@@ -32,23 +32,23 @@ lensing = render_lensing_form(prefix="dor_")
 
 with st.container(border=True):
     st.subheader("Dorian RT-specific")
-    input_dir = st.text_input(
-        "input_dir", value="results/cosmology_runs", key="dor_input_dir"
+    input_path = st.text_input(
+        "input", value="results/cosmology_runs", key="dor_input"
     )
-    output_dir = st.text_input(
-        "output_dir", value="results/lensing/multi_shell_raytrace", key="dor_output_dir"
+    output_path = st.text_input(
+        "output", value="results/lensing/multi_shell_raytrace", key="dor_output"
     )
     rt_interp = st.selectbox(
         "rt_interp", ["bilinear", "ngp", "nufft"], key="dor_rt_interp"
     )
     no_parallel_transport = st.checkbox("no_parallel_transport", key="dor_no_pt")
 
-# Build command
+# Build command — keys mirror _SUBCOMMAND_SPECS["dorian-rt"] in command_builder.py
 params = {**slurm, **lensing}
 params.update(
     {
-        "input_dir": input_dir,
-        "output_dir": output_dir,
+        "input": input_path,
+        "output": output_path,
         "rt_interp": rt_interp,
         "no_parallel_transport": no_parallel_transport,
     }

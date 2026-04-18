@@ -16,6 +16,7 @@ import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.figure import Figure
+import streamlit as st
 
 from .utils import (
     _COLOR_THEORY,
@@ -649,7 +650,6 @@ def compute_cls(
 # ---------------------------------------------------------------------------
 # Theory computation
 # ---------------------------------------------------------------------------
-
 
 def compute_theory_cl(
     ref_obj,

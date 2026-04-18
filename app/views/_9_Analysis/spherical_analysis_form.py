@@ -523,8 +523,6 @@ def cl_tab(
         spectra_fig = st.session_state.get("analysis_spectra_fig")
         if spectra_png:
             st.image(spectra_png)
-            # TODO save figure should download the pdf make this code mirror how it is done in /home/wassim/Projects/NBody/jax-fli-result/app/views/_7_Analysis/form.py: L390
-            # after making that code work and nicely clean
             if spectra_fig is not None:
                 from app.components.save_figure import render_save_figure
 

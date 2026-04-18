@@ -8,6 +8,8 @@ import streamlit as st
 
 from app.components.command_builder import build_command
 from app.components.lensing_form import render_lensing_form
+from app.components.misc_forms import render_2pcf_observable_form
+from app.components.output_form import render_2pcf_config_form
 from app.components.prior_cosmo_form import render_prior_cosmo_form
 from app.components.slurm_form import render_slurm_form
 from app.components.styled_container import inject_custom_css
@@ -29,7 +31,7 @@ cmd_placeholder = st.empty()
 c1, c2, c3 = st.columns([1, 1, 1])
 
 # ─────────────────────────────────────────────────────────────────────────────
-# c1 — SLURM + 2PCF Config
+# c1 — SLURM + 2PCF I/O Config
 # ─────────────────────────────────────────────────────────────────────────────
 with c1:
     slurm = render_slurm_form(
@@ -37,120 +39,12 @@ with c1:
         prefix="tpcf_slurm_",
         show_pdim=False,
     )
-
-    with st.container(border=True):
-        st.subheader("2PCF Config")
-
-        observable = st.text_input(
-            "observable path",
-            value="observables/BORN_SMALL_spectra.parquet",
-            key="tpcf_observable",
-            help="Parquet Catalog containing a PowerSpectrum field with observed C_ell.",
-        )
-        output_path = st.text_input(
-            "output path",
-            value="results/2pcf_inference",
-            key="tpcf_output_path",
-        )
-
-        ci_col, seed_col = st.columns(2)
-        with ci_col:
-            chain_index = st.number_input(
-                "chain index", min_value=0, value=0, key="tpcf_chain_index"
-            )
-        with seed_col:
-            seed = st.number_input("seed", min_value=0, value=0, key="tpcf_seed")
-
-        st.markdown("**Geometry**")
-        geom_mode = st.radio(
-            "geometry",
-            ["Spherical (nside)", "Flat sky"],
-            horizontal=True,
-            key="tpcf_geom_mode",
-        )
-        nside = flatsky_npix = field_size = None
-        if geom_mode == "Spherical (nside)":
-            nside = st.number_input("nside", min_value=1, value=64, key="tpcf_nside")
-        else:
-            fp1, fp2 = st.columns(2)
-            with fp1:
-                _fp_h = st.number_input(
-                    "H (pixels)", min_value=1, value=512, key="tpcf_fp_h"
-                )
-            with fp2:
-                _fp_w = st.number_input(
-                    "W (pixels)", min_value=1, value=512, key="tpcf_fp_w"
-                )
-            flatsky_npix = [_fp_h, _fp_w]
-            ff1, ff2 = st.columns(2)
-            with ff1:
-                _ff_h = st.number_input(
-                    "H (deg)", min_value=1, value=10, key="tpcf_ff_h"
-                )
-            with ff2:
-                _ff_w = st.number_input(
-                    "W (deg)", min_value=1, value=10, key="tpcf_ff_w"
-                )
-            field_size = [_ff_h, _ff_w]
-
-        lmax_col, fsky_col = st.columns(2)
-        with lmax_col:
-            lmax = st.number_input("lmax", min_value=1, value=2047, key="tpcf_lmax")
-        with fsky_col:
-            f_sky = st.number_input(
-                "f_sky",
-                min_value=0.0,
-                max_value=1.0,
-                value=1.0,
-                format="%.3f",
-                key="tpcf_f_sky",
-            )
-
-        sigma_e_col, nl_col = st.columns(2)
-        with sigma_e_col:
-            sigma_e = st.number_input(
-                "sigma_e", value=0.26, format="%.4f", key="tpcf_sigma_e"
-            )
-        with nl_col:
-            nonlinear_fn = st.selectbox(
-                "nonlinear_fn",
-                ["halofit", "linear"],
-                key="tpcf_nonlinear_fn",
-            )
-
-        st.markdown("**MCMC**")
-        wm_col, ns_col = st.columns(2)
-        with wm_col:
-            num_warmup = st.number_input(
-                "num_warmup", min_value=0, value=100, key="tpcf_num_warmup"
-            )
-        with ns_col:
-            num_samples = st.number_input(
-                "num_samples", min_value=1, value=500, key="tpcf_num_samples"
-            )
-
-        batch_count = st.number_input(
-            "batch_count", min_value=1, value=10, key="tpcf_batch_count"
-        )
-
-        sm_col, be_col = st.columns(2)
-        with sm_col:
-            sampler = st.selectbox(
-                "sampler", ["NUTS", "HMC", "MCLMC"], key="tpcf_sampler"
-            )
-        with be_col:
-            backend = st.selectbox(
-                "backend", ["numpyro", "blackjax"], index=1, key="tpcf_backend"
-            )
-
-        enable_x64 = st.checkbox("enable_x64", value=False, key="tpcf_enable_x64")
-
+    tpcf_io = render_2pcf_config_form(prefix="tpcf_")
 # ─────────────────────────────────────────────────────────────────────────────
-# c2 — Lensing
+# c2 — 2PCF Observable Settings
 # ─────────────────────────────────────────────────────────────────────────────
 with c2:
-    lensing = render_lensing_form(prefix="tpcf_")
-
+    tpcf_obs = render_2pcf_observable_form(prefix="tpcf_")
 # ─────────────────────────────────────────────────────────────────────────────
 # c3 — Prior Cosmology (no IC for 2PCF)
 # ─────────────────────────────────────────────────────────────────────────────
@@ -163,30 +57,30 @@ prior_sigma8 = cosmo.get("prior_sigma8") or [0.6, 1.0]
 prior_h = cosmo.get("prior_h") or [0.5, 0.9]
 sample = cosmo.get("sample") or ["cosmo"]
 
-params = {**slurm, **lensing}
+params = {**slurm}
 params.update(
     {
-        "observable": observable,
-        "path": output_path,
-        "nside": nside,
-        "flatsky_npix": flatsky_npix,
-        "field_size": field_size,
-        "lmax": lmax,
-        "f_sky": f_sky,
-        "sigma_e": sigma_e,
-        "nonlinear_fn": nonlinear_fn,
-        "chain_index": chain_index,
-        "num_warmup": num_warmup,
-        "num_samples": num_samples,
-        "batch_count": batch_count,
-        "sampler": sampler,
-        "backend": backend,
+        "observable": tpcf_io["observable"],
+        "path": tpcf_io["path"],
+        "chain_index": tpcf_io["chain_index"],
+        "seed": tpcf_io["seed"],
+        "nside": tpcf_obs["nside"],
+        "flatsky_npix": tpcf_obs["flatsky_npix"],
+        "field_size": tpcf_obs["field_size"],
+        "lmax": tpcf_obs["lmax"],
+        "f_sky": tpcf_obs["f_sky"],
+        "sigma_e": tpcf_obs["sigma_e"],
+        "nonlinear_fn": tpcf_obs["nonlinear_fn"],
+        "num_warmup": tpcf_obs["num_warmup"],
+        "num_samples": tpcf_obs["num_samples"],
+        "batch_count": tpcf_obs["batch_count"],
+        "sampler": tpcf_obs["sampler"],
+        "backend": tpcf_obs["backend"],
+        "enable_x64": tpcf_obs["enable_x64"],
         "sample": sample if sample else ["cosmo"],
         "prior_omega_c": prior_omega_c,
         "prior_sigma8": prior_sigma8,
         "prior_h": prior_h,
-        "seed": seed,
-        "enable_x64": enable_x64,
     }
 )
 
