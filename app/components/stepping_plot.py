@@ -56,6 +56,7 @@ def _compute_stepping(
     cosmo = jc.Planck18()
     ts_arr = jnp.asarray(ts) if ts else None
 
+    # TODO must return steps and snapshots
     result = simulation_stepping(
         cosmo,
         t0,

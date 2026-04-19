@@ -67,19 +67,15 @@ def render_field_map(
     (png_bytes, fig) on success; (None, None) on failure.
     The caller is responsible for closing the figure after use.
     """
-    data_arr = np.asarray(plot_field.array)
-    n_maps = 1 if data_arr.ndim <= 1 else int(np.prod(data_arr.shape[:-1]))
+    n_maps = plot_field.shape[0] if plot_field.is_batched() else 1
     ncols = int(map_params["ncols"])
     nrows = max(1, ceil(n_maps / ncols))
 
     titles = []
     for i in range(n_maps):
-        t = (
-            map_params["title_template"]
-            .replace("%l%", selected_entry["label"])
-            .replace("%i%", str(i))
+        t = _make_title(
+            map_params["title_template"], plot_field, i, label=selected_entry["label"]
         )
-        t = _make_title(t, plot_field, i)
         titles.append(t)
 
     fig = None
@@ -215,7 +211,6 @@ def cl_tab(
             )
 
             # --- Probe settings (expander, visible when compare_theory) ---
-            # TODO add prove DESY3
             probe_type = "s3" if is_kappa else "density"
             nz_zmax = 2.0
             apply_pixwin = False
@@ -224,9 +219,9 @@ def cl_tab(
                 with st.expander("Probe settings", expanded=True):
                     # Density is not meaningful for kappa fields
                     _probe_options = (
-                        ["s3", "point sources"]
+                        ["s3", "desY3", "point sources"]
                         if is_kappa
-                        else ["density", "s3", "point sources"]  # TODO add DESY3 here
+                        else ["density", "s3", "desY3", "point sources"]
                     )
                     _pt_key = "analysis_probe_type"
                     # Reset if stored value is no longer a valid option
@@ -239,6 +234,7 @@ def cl_tab(
                         help=(
                             "density: matter Cl via Limber  |  "
                             "s3: weak-lensing Stage-III n(z)  |  "
+                            "desY3: weak-lensing DES Y3 n(z)  |  "
                             "point sources: explicit source redshifts"
                         ),
                     )
@@ -334,7 +330,7 @@ def cl_tab(
             spec_dpi = st.number_input(
                 "Render DPI",
                 min_value=50,
-                max_value=300,
+                max_value=2000,
                 value=100,
                 step=25,
                 key="analysis_spec_dpi",
@@ -419,12 +415,20 @@ def cl_tab(
             else:
                 with st.spinner("Computing angular power spectra..."):
                     spectra_results = _compute.compute_cls(
-                        active_entries, int(lmin), int(lmax), selected_shells
+                        active_entries,
+                        int(lmin),
+                        int(lmax),
+                        selected_shells,  # type: ignore
                     )
 
             # Slice to selected shells now — builders receive pre-sliced data
             if spectra_results:
-                # check that all spectra have same length
+                # Compare batch size
+                if len(set(s[1].spectra.shape[0] for s in spectra_results)) > 1:
+                    st.error(
+                        "Spectra have different number of shells after slicing — cannot compare."
+                    )
+                    st.stop()
                 spec_lengths = [s[1].wavenumber.size for s in spectra_results]
                 if len(set(spec_lengths)) > 1:
                     st.error(
@@ -442,14 +446,22 @@ def cl_tab(
                     st.warning(
                         "Spectra have different comoving centers — cannot compare."
                     )
+                    for i, cc in enumerate(comoving_centers):
+                        print(f"  {spectra_results[i][0]}: {cc}")
                 if not np.all(np.isclose(scale_factors, scale_factors[0])):
                     st.warning("Spectra have different scale factors — cannot compare.")
+                    for i, sf in enumerate(scale_factors):
+                        print(f"  {spectra_results[i][0]}: {sf}")
                 if not np.all(np.isclose(z_sources, z_sources[0])):
                     st.warning("Spectra have different z sources — cannot compare.")
+                    for i, zs in enumerate(z_sources):
+                        print(f"  {spectra_results[i][0]}: {zs}")
                 if not np.all(np.isclose(density_width, density_width[0])):
                     st.warning(
                         "Spectra have different density widths — cannot compare."
                     )
+                    for i, dw in enumerate(density_width):
+                        print(f"  {spectra_results[i][0]}: {dw}")
 
             if compare_theory and spectra_results:
                 ells = jnp.asarray(spectra_results[0][1].wavenumber)
@@ -467,6 +479,7 @@ def cl_tab(
                         apply_pixwin,
                         int(lmin),
                         int(lmax),
+                        selected_shells=selected_shells,
                     )
 
             st.session_state["analysis_spectra_results"] = spectra_results
@@ -510,8 +523,6 @@ def cl_tab(
         spectra_fig = st.session_state.get("analysis_spectra_fig")
         if spectra_png:
             st.image(spectra_png)
-            # TODO save figure should download the pdf make this code mirror how it is done in /home/wassim/Projects/NBody/jax-fli-result/app/views/_7_Analysis/form.py: L390
-            # after making that code work and nicely clean
             if spectra_fig is not None:
                 from app.components.save_figure import render_save_figure
 

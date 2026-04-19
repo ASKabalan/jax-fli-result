@@ -100,18 +100,25 @@ def _update_label(index: int, key: str):
     st.session_state[CATALOGS_KEY][index]["label"] = st.session_state[key]
 
 
-def _update_name(path: str, new_name: str):
+def _update_name(paths: list[str], new_names: list[str]):
+    import jax_fli as jfli
     from datasets import load_dataset
 
     try:
-        ds = load_dataset("parquet", data_files=path, split="train")
-        ds = ds.map(
-            lambda ex, i: {**ex, "name": new_name} if i == 0 else ex, with_indices=True
+        ds = load_dataset("parquet", data_files=paths, split="train")
+        messages = []
+        for path, entry, new_name in zip(paths, ds, new_names):
+            if entry["name"] != new_name:
+                catalog = jfli.io.Catalog.from_dataset(entry)
+                field = catalog.field[0]
+                field = field.replace(name=new_name)
+                jfli.io.Catalog(field=field, cosmology=catalog.cosmology[0]).to_parquet(
+                    path
+                )
+                messages.append(f"Renamed to '{new_name}' in {Path(path).name}")
+        st.session_state["_rename_info"] = (
+            "\n".join(messages) if messages else "No renames needed."
         )
-        ds.to_parquet(path)
-        st.session_state[
-            "_rename_info"
-        ] = f"Renamed to '{new_name}' in {Path(path).name}"
     except Exception as e:
         st.session_state["_rename_info"] = f"Rename failed: {e}"
 
@@ -145,7 +152,7 @@ def _render_file_loading(entries: list[dict]) -> None:
             )
 
         for i, entry in enumerate(entries):
-            cb, cl, cp, ct, un, cr = st.columns([0.5, 2, 3, 1.5, 0.5, 0.5])
+            cb, cl, cp, ct, cr = st.columns([0.5, 2, 3, 1.5, 0.5])
             with cb:
                 st.checkbox(
                     f"**#{i+1}**",
@@ -173,17 +180,20 @@ def _render_file_loading(entries: list[dict]) -> None:
                 )
             with ct:
                 st.caption(entry["field_type"])
-            with un:
-                st.button(
-                    "\u270E",
-                    key=f"analysis_rename_{i}",
-                    on_click=_update_name,
-                    args=(entry["path"], entry["label"]),
-                )
             with cr:
                 st.button(
                     "\u2716", key=f"analysis_rm_{i}", on_click=_remove_entry, args=(i,)
                 )
+
+        if entries:
+            all_paths = [e["path"] for e in entries]
+            all_labels = [e["label"] for e in entries]
+            st.button(
+                "Save Names",
+                key="analysis_rename_all",
+                on_click=_update_name,
+                args=(all_paths, all_labels),
+            )
 
         if not entries:
             st.info("No files loaded. Enter a parquet file path and click Load.")
@@ -568,6 +578,9 @@ def _render_field_map_section(entries: list[dict]) -> None:
 
                     png, fig = flat_analysis.render_flat_field_map(
                         selected_entry, plot_field, map_params
+                    )
+                    print(
+                        f"[form] Flat field map rendered: png size = {len(png) if png else 'None'}, fig = {fig}"
                     )
 
                 if png is not None:

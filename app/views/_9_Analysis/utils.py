@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import io
 from threading import RLock
+from typing import Union
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -35,28 +36,36 @@ _COLOR_THEORY = "black"
 # ---------------------------------------------------------------------------
 
 
-def parse_slice(s: str) -> slice:
+def parse_slice(s: str) -> Union[slice, int]:
     """
-    Parses strings like ':', '1:5', ':-1', or '-10:' into a slice object.
+    Parses strings like ':', '1:5', ':-1', '-10:', or '::-1' into a slice object,
+    and single values like '0' or '-1' into an integer.
     """
-    # Examples:
-    # "1:10:2" -> slice(1, 10, 2)
-    # "-10:"   -> slice(-10, None, None)
-    # ":"      -> slice(None, None, None)
     s = s.strip()
+
+    # Handle empty strings or a generic slice
     if not s or s == ":":
         return slice(None)
-
-    # Split by ':' and take up to 3 parts (start, stop, step)
-    parts = s.split(":")
 
     def to_int(val):
         val = val.strip()
         return int(val) if val else None
 
+    # If there are no colons, treat it as a single integer index
+    if ":" not in s:
+        try:
+            return int(s)
+        except ValueError:
+            # Fallback for invalid strings (matches your original error handling)
+            return slice(None)
+
+    # Split by ':' and take up to 3 parts (start, stop, step)
+    parts = s.split(":")
+
     try:
-        # Pad parts to ensure we can unpack at least 1, up to 3
-        # slice(*[None, None]) -> slice(None, None)
+        # Since ':' is in `s`, `parts` will always have at least 2 elements.
+        # slice(*[start, stop]) -> slice(start, stop, None)
+        # slice(*[start, stop, step]) -> slice(start, stop, step)
         return slice(*[to_int(p) for p in parts[:3]])
     except ValueError:
         # Fallback for invalid strings
@@ -82,20 +91,23 @@ def _fig_to_pdf(fig, dpi: int = 100) -> bytes:
     return buf.getvalue()
 
 
-def _make_title(template: str, field, idx: int) -> str:
-    """Substitute %r%, %z%, %a% in a title template with field metadata."""
-    title = template
+def _make_title(template: str, field, idx: int, *, label: str = "") -> str:
+    """Substitute all placeholders in a title template with field metadata."""
+    title = template.replace("%l%", label).replace("%i%", str(idx))
     for attr, key, fmt in [
-        ("comoving_centers", "%r%", ".1f"),
+        ("comoving_centers", "%r%", ".3f"),
         ("z_sources", "%z%", ".3f"),
-        ("scale_factors", "%a%", ".4f"),
+        ("scale_factors", "%a%", ".3f"),
+        ("density_width", "%d%", ".3f"),
     ]:
         if key not in title:
             continue
         arr = getattr(field, attr, None)
         if arr is not None:
             try:
-                title = title.replace(key, format(float(np.asarray(arr)[idx]), fmt))
+                title = title.replace(
+                    key, format(float(np.atleast_1d(np.asarray(arr))[idx]), fmt)
+                )
             except Exception:
                 pass
     return title

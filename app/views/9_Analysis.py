@@ -1,6 +1,6 @@
 """Analysis page — entry point for Streamlit routing.
 
-All logic lives in app/views/_7_Analysis/. This file is kept minimal so
+All logic lives in app/views/_9_Analysis/. This file is kept minimal so
 Streamlit can discover it as a page via the numeric prefix convention.
 """
 import os
@@ -19,6 +19,6 @@ from app.components.styled_container import inject_custom_css
 inject_custom_css()
 st.title("Analysis")
 
-from app.views._7_Analysis.form import run
+from app.views._9_Analysis.form import run
 
 run()

@@ -9,6 +9,22 @@ def render_cosmo_form(defaults: dict | None = None, prefix: str = "") -> dict:
     with st.container(border=True):
         st.subheader("Cosmology")
 
+        oc_col, s8_col = st.columns(2)
+        with oc_col:
+            omega_c = st.number_input(
+                "omega_c",
+                value=float(defaults.get("omega_c", 0.2589)),
+                format="%.4f",
+                key=f"{prefix}omega_c",
+            )
+        with s8_col:
+            sigma8 = st.number_input(
+                "sigma8",
+                value=float(defaults.get("sigma8", 0.8159)),
+                format="%.4f",
+                key=f"{prefix}sigma8",
+            )
+
         c1, c2 = st.columns(2)
         with c1:
             h = st.number_input(
@@ -53,6 +69,8 @@ def render_cosmo_form(defaults: dict | None = None, prefix: str = "") -> dict:
         )
 
         return {
+            "omega_c": omega_c,
+            "sigma8": sigma8,
             "h": h,
             "omega_b": omega_b,
             "omega_k": omega_k,

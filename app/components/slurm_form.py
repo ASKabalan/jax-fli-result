@@ -3,38 +3,16 @@ from __future__ import annotations
 
 import streamlit as st
 
-_JOB_MODES = ["Per job (simulate)", "Single job (grid)"]
-_JOB_MODE_VALUES = {"Per job (simulate)": "simulate", "Single job (grid)": "grid"}
-
 
 def render_slurm_form(
     defaults: dict | None = None,
     prefix: str = "",
-    show_job_mode: bool = False,
     show_tasks_per_node: bool = False,
     show_pdim: bool = True,
 ) -> dict:
     defaults = defaults or {}
     with st.container(border=True):
         st.subheader("SLURM / Cluster")
-
-        # ── Job mode (optional) ──────────────────────────────────────────────
-        job_mode = None
-        if show_job_mode:
-            default_mode_val = defaults.get("job_mode", "simulate")
-            default_label = next(
-                (k for k, v in _JOB_MODE_VALUES.items() if v == default_mode_val),
-                _JOB_MODES[0],
-            )
-            selected_label = st.selectbox(
-                "Job mode",
-                _JOB_MODES,
-                index=_JOB_MODES.index(default_label),
-                key=f"{prefix}job_mode_select",
-                help="Per job: one fli-launcher simulate job per parameter combination. "
-                "Single job: one fli-launcher grid job that loops over all combinations internally.",
-            )
-            job_mode = _JOB_MODE_VALUES[selected_label]
 
         # ── Dispatch mode ────────────────────────────────────────────────────
         mode = st.selectbox(
@@ -164,6 +142,4 @@ def render_slurm_form(
         }
         if show_pdim:
             result["pdim"] = [px, py]
-        if show_job_mode:
-            result["job_mode"] = job_mode
         return result
