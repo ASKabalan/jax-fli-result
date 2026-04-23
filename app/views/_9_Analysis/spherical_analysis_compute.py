@@ -16,6 +16,7 @@ import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.figure import Figure
+import streamlit as st
 
 from .utils import (
     _COLOR_THEORY,
@@ -262,6 +263,9 @@ def _build_cl_with_theory_ratio(
             cl_s = _cl_slice(cl, i, ns)
             label = f"{lbl} (Ref)" if ci == 0 else lbl
             cl_s.plot(ax=ax_main, logx=True, logy=True, label=label, color=color)
+            # ylims is 1e-7 5e-2
+            ax_main.set_ylim(1e-7, 5e-2)
+            print(f"here: {i}")
         ax_main.grid(True, which="both", ls="--", alpha=0.2)
         ax_main.set_title(_make_title(title_template, spectra_results[0][1], i))
         if col == 0:
@@ -459,6 +463,7 @@ def _build_cl_ratio_only_theory(
             color = _PALETTE[ci % len(_PALETTE)]
             cl_s = _cl_slice(cl, i, ns)
             (cl_s / th_s).plot(ax=ax, logx=True, color=color, legend=False, label=lbl)
+ 
 
         ax.set_title(_make_title(title_template, spectra_results[0][1], i))
         ylabel = "Ratio\n(vs Theory)" if col == 0 else ""
@@ -692,6 +697,9 @@ def compute_theory_cl(
     ref_field_obj = ref_obj.field[0]
     if selected_shells is not None:
         ref_field_obj = ref_field_obj[selected_shells]
+        if ref_field_obj.scale_factors.shape == (0,):
+            st.error("No valid shells selected for the indexing range")
+            st.stop()
     ref_cosmo = ref_obj.cosmology[0]
     nl_fn = jc.power.halofit if nl_fn_name == "halofit" else "linear"
 

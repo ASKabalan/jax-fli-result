@@ -442,21 +442,24 @@ def cl_tab(
                 z_sources = np.array([s[1].z_sources for s in spectra_results])
                 density_width = np.array([s[1].density_width for s in spectra_results])
 
-                if not np.all(np.isclose(comoving_centers, comoving_centers[0])):
+                rtol = 1e-1
+                atol = 1e-1
+
+                if not np.all(np.isclose(comoving_centers, comoving_centers[0], rtol=rtol, atol=atol)):
                     st.warning(
                         "Spectra have different comoving centers — cannot compare."
                     )
                     for i, cc in enumerate(comoving_centers):
                         print(f"  {spectra_results[i][0]}: {cc}")
-                if not np.all(np.isclose(scale_factors, scale_factors[0])):
+                if not np.all(np.isclose(scale_factors, scale_factors[0], rtol=rtol, atol=atol)):
                     st.warning("Spectra have different scale factors — cannot compare.")
                     for i, sf in enumerate(scale_factors):
                         print(f"  {spectra_results[i][0]}: {sf}")
-                if not np.all(np.isclose(z_sources, z_sources[0])):
+                if not np.all(np.isclose(z_sources, z_sources[0], rtol=rtol, atol=atol)):
                     st.warning("Spectra have different z sources — cannot compare.")
                     for i, zs in enumerate(z_sources):
                         print(f"  {spectra_results[i][0]}: {zs}")
-                if not np.all(np.isclose(density_width, density_width[0])):
+                if not np.all(np.isclose(density_width, density_width[0], rtol=rtol, atol=atol)):
                     st.warning(
                         "Spectra have different density widths — cannot compare."
                     )

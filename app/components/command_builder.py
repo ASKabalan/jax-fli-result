@@ -209,6 +209,7 @@ _SUBCOMMAND_SPECS: dict[str, list] = {
         ("ell-edges", "optional_list", None),
         ("lmax", "optional_int", None),
         ("kmax", "optional_float", None),
+        ("dk", "optional_float", None),
         ("method", str, "healpy"),
         ("kedges", "optional_list", None),
         ("multipoles", list, [0]),

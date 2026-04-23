@@ -100,28 +100,41 @@ def _update_label(index: int, key: str):
     st.session_state[CATALOGS_KEY][index]["label"] = st.session_state[key]
 
 
+
 def _update_name(paths: list[str], new_names: list[str]):
     import jax_fli as jfli
     from datasets import load_dataset
+    messages = []
+    
+    for path, new_name in zip(paths, new_names):
+        try:
+            # 1. Load each file individually so schemas don't clash
+            ds = load_dataset("parquet", data_files=[path], split="train")
+            entry = ds[0]
 
-    try:
-        ds = load_dataset("parquet", data_files=paths, split="train")
-        messages = []
-        for path, entry, new_name in zip(paths, ds, new_names):
+            print(f"Processing {Path(path).name}: current name = '{entry['name']}', new name = '{new_name}'")
             if entry["name"] != new_name:
+                # 2. Modify the entry
                 catalog = jfli.io.Catalog.from_dataset(entry)
                 field = catalog.field[0]
                 field = field.replace(name=new_name)
-                jfli.io.Catalog(field=field, cosmology=catalog.cosmology[0]).to_parquet(
-                    path
-                )
+                
+                # 3. Save it back to the original path
+                jfli.io.Catalog(
+                    field=field, 
+                    cosmology=catalog.cosmology[0]
+                ).to_parquet(path)
+                
                 messages.append(f"Renamed to '{new_name}' in {Path(path).name}")
-        st.session_state["_rename_info"] = (
-            "\n".join(messages) if messages else "No renames needed."
-        )
-    except Exception as e:
-        st.session_state["_rename_info"] = f"Rename failed: {e}"
+            else:
+                print(f"skipped {Path(path).name}: name already matches new name.")
+                
+        except Exception as e:
+            messages.append(f"Failed processing {Path(path).name}: {e}")
 
+    st.session_state["_rename_info"] = (
+        "\n".join(messages) if messages else "No renames needed."
+    )
 
 def _remove_entry(index: int):
     st.session_state[CATALOGS_KEY].pop(index)
@@ -664,6 +677,52 @@ def _render_field_map_section(entries: list[dict]) -> None:
 
     with st.expander("Field info"):
         st.code(repr(field), language=None)
+
+    # print a markdown table of all metadata attributes
+    with st.expander("Metadata table"):
+        attributes = [
+            "comoving_centers",
+            "scale_factors",
+            "z_sources",
+            "density_width"
+        ]
+        
+        # Build the table header and separator
+        table_md = "| Comoving | Scale factor | Redshift | Density |\n"
+        table_md += "|---|---|---|---|\n"
+        
+        # 1. Gather all the data into a list of lists/arrays
+        columns_data = []
+        for attr in attributes:
+            val = getattr(field, attr, None)
+            if val is None:
+                columns_data.append([])
+            elif isinstance(val, (float, int)):
+                columns_data.append([val])  # Wrap single numbers in a list
+            else:
+                columns_data.append(val)    # Keep as iterable/numpy array
+                
+        # 2. Find the maximum length among all the columns
+        max_rows = max([len(col) for col in columns_data] + [0])
+        
+        # 3. Build the table row by row
+        for i in range(max_rows):
+            row_vals = []
+            for col in columns_data:
+                # If this column has data for the current row, format it
+                if i < len(col):
+                    row_vals.append(f"{col[i]:.4f}")
+                else:
+                    # Otherwise, leave the cell empty
+                    row_vals.append("") 
+            
+            # Combine the formatted values into a markdown row
+            table_md += f"| {' | '.join(row_vals)} |\n"
+        
+        if max_rows > 0:
+            st.markdown(table_md)
+        else:
+            st.info("No metadata attributes available to display.")
 
 
 # ---------------------------------------------------------------------------

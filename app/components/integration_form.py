@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import streamlit as st
 
-from app.components.dynamic_list import render_dynamic_list
+from app.components.dynamic_list import parse_csv_list, render_dynamic_list
 from app.components.lensing_form import render_lensing_form
 
 
@@ -108,17 +108,20 @@ def render_integration_form(
                 key=f"{prefix}nb_steps",
                 help="NBody timesteps. Not used for LPT.",
             )
-            ts = render_dynamic_list("ts", f"{prefix}ts", [], cast_fn=float) or None
+            _ts_raw = st.text_input(
+                "ts (comma-separated)", value="", key=f"{prefix}ts_csv",
+                help="Scale factor values, e.g. 0.5, 0.7, 1.0",
+            )
+            ts = parse_csv_list(_ts_raw, float) or None
             st.caption(
                 "density_widths: one value for all shells, one per shell, "
                 "or empty (auto-computed from ts)"
             )
-            density_widths = (
-                render_dynamic_list(
-                    "density_widths", f"{prefix}density_widths", [], cast_fn=float
-                )
-                or None
+            _dw_raw = st.text_input(
+                "density_widths (comma-separated)", value="", key=f"{prefix}density_widths_csv",
+                help="e.g. 100.0, 150.0 or a single value for all shells",
             )
+            density_widths = parse_csv_list(_dw_raw, float) or None
 
         else:  # Near and Far lists
             nb_steps = st.number_input(
@@ -129,25 +132,26 @@ def render_integration_form(
                 key=f"{prefix}nb_steps",
                 help="NBody timesteps. Not used for LPT.",
             )
-            ts_near = (
-                render_dynamic_list("ts_near", f"{prefix}ts_near", [], cast_fn=float)
-                or None
+            _ts_near_raw = st.text_input(
+                "ts_near (comma-separated)", value="", key=f"{prefix}ts_near_csv",
+                help="Near shell boundaries, e.g. 0.3, 0.5, 0.7",
             )
-            ts_far = (
-                render_dynamic_list("ts_far", f"{prefix}ts_far", [], cast_fn=float)
-                or None
+            ts_near = parse_csv_list(_ts_near_raw, float) or None
+            _ts_far_raw = st.text_input(
+                "ts_far (comma-separated)", value="", key=f"{prefix}ts_far_csv",
+                help="Far shell boundaries, e.g. 0.5, 0.7, 1.0",
             )
+            ts_far = parse_csv_list(_ts_far_raw, float) or None
             if show_density_widths:
                 st.caption(
                     "density_widths: one value for all shells, one per shell, "
                     "or empty (auto-computed from ts)"
                 )
-                density_widths = (
-                    render_dynamic_list(
-                        "density_widths", f"{prefix}density_widths", [], cast_fn=float
-                    )
-                    or None
+                _dw_raw = st.text_input(
+                    "density_widths (comma-separated)", value="", key=f"{prefix}density_widths_csv",
+                    help="e.g. 100.0, 150.0 or a single value for all shells",
                 )
+                density_widths = parse_csv_list(_dw_raw, float) or None
 
         st.divider()
 

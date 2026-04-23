@@ -144,3 +144,18 @@ def render_dynamic_triple_list(
             except (ValueError, TypeError):
                 result.append(cast_fn(0))
     return result
+
+
+def parse_csv_list(raw: str, cast_fn=float) -> list:
+    """Parse a comma-separated string into a typed list. Returns [] for empty input."""
+    if not raw or not raw.strip():
+        return []
+    result = []
+    for part in raw.split(","):
+        part = part.strip()
+        if part:
+            try:
+                result.append(cast_fn(part))
+            except (ValueError, TypeError):
+                pass
+    return result

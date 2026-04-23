@@ -7,7 +7,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 import streamlit as st
 
 from app.components.command_builder import build_command
-from app.components.dynamic_list import render_dynamic_list
+from app.components.dynamic_list import parse_csv_list, render_dynamic_list
 from app.components.slurm_form import render_slurm_form
 from app.components.styled_container import inject_custom_css
 
@@ -96,7 +96,29 @@ with c2:
     with st.container(border=True):
         st.subheader("3D P(k)")
 
-        kedges = render_dynamic_list("kedges", "spec_kedges", [], cast_fn=float) or None
+        k_mode = st.radio(
+            "k bins",
+            ["Auto", "Custom Edges", "Custom dk"],
+            horizontal=True,
+            key="spec_k_mode",
+            help="Auto: CLI defaults. Custom Edges: explicit bin edges. Custom dk: uniform bins.",
+        )
+        kedges = dk = kmax = None
+        if k_mode == "Custom Edges":
+            raw = st.text_input(
+                "kedges (comma-separated)",
+                value="",
+                key="spec_kedges_csv",
+                help="e.g. 1e-3, 5e-3, 1e-2, 1e-1",
+            )
+            kedges = parse_csv_list(raw, float) or None
+        elif k_mode == "Custom dk":
+            dk_col, kmax_col = st.columns(2)
+            with dk_col:
+                dk = st.number_input("dk", value=0.01, format="%.4f", key="spec_dk")
+            with kmax_col:
+                kmax = st.number_input("kmax", value=1.0, format="%.4f", key="spec_kmax")
+
         multipoles = render_dynamic_list(
             "multipoles", "spec_multipoles", ["0"], cast_fn=int
         ) or [0]
@@ -135,6 +157,8 @@ params.update(
         "lmax": lmax,
         "method": method,
         "kedges": kedges,
+        "dk": dk,
+        "kmax": kmax,
         "multipoles": multipoles,
         "los": [los_x, los_y, los_z],
         "batch_size": batch_size,
