@@ -7,29 +7,29 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 import streamlit as st
 
 from app.components.command_builder import build_command
-from app.components.dynamic_list import parse_csv_list, render_dynamic_list
 from app.components.slurm_form import render_slurm_form
+from app.components.spectra_form import (
+    render_spectra_common_form,
+    render_spectra_density_form,
+    render_spectra_flat_form,
+    render_spectra_scan_form,
+    render_spectra_spherical_form,
+)
 from app.components.styled_container import inject_custom_css
 
 inject_custom_css()
 st.title("Spectra")
 
-# ── TOP ROW: description ──────────────────────────────────────────────────────
 st.markdown(
     "Compute power spectra from lightcone/density parquet catalogs.\n\n"
     "Scans a folder for `.parquet` files and computes angular C_ell (flat or spherical) "
     "or 3D P(k) depending on the field type found."
 )
 
-# ── MIDDLE: command preview placeholder ──────────────────────────────────────
 cmd_placeholder = st.empty()
 
-# ── 2-column layout: SLURM left | Spectra config right ───────────────────────
 c1, c2 = st.columns([1, 2])
 
-# ─────────────────────────────────────────────────────────────────────────────
-# c1 — SLURM (no pdim — CPU job)
-# ─────────────────────────────────────────────────────────────────────────────
 with c1:
     slurm = render_slurm_form(
         defaults={"gpus_per_node": 0, "nodes": 1, "cpus_per_node": 8},
@@ -38,138 +38,21 @@ with c1:
         show_tasks_per_node=False,
     )
 
-# ─────────────────────────────────────────────────────────────────────────────
-# c2 — Spectra settings
-# ─────────────────────────────────────────────────────────────────────────────
 with c2:
-    with st.container(border=True):
-        st.subheader("Scan")
+    scan = render_spectra_scan_form(prefix="spec_")
+    flat = render_spectra_flat_form(prefix="spec_")
+    spherical = render_spectra_spherical_form(prefix="spec_")
+    density = render_spectra_density_form(prefix="spec_")
+    common = render_spectra_common_form(prefix="spec_")
 
-        folder = st.text_input(
-            "folder",
-            value="results/cosmology_runs",
-            key="spec_folder",
-            help="Root folder to scan for parquet files.",
-        )
-        regex = st.text_input(
-            "regex",
-            value=r".*\.parquet$",
-            key="spec_regex",
-            help="Regex pattern to filter filenames (default: all .parquet files).",
-        )
-        sc1, sc2, sc3 = st.columns(3)
-        with sc1:
-            recursive = st.checkbox("recursive", value=False, key="spec_recursive")
-        with sc2:
-            force_regen = st.checkbox(
-                "force_regen", value=False, key="spec_force_regen"
-            )
-        with sc3:
-            normalization = st.selectbox(
-                "normalization",
-                ["global", "per_plane"],
-                key="spec_normalization",
-            )
-
-    with st.container(border=True):
-        st.subheader("Angular C_ell")
-
-        st.markdown("**Flat-sky**")
-        raw_ell = st.text_input(
-            "ell_edges (comma-separated)",
-            value="",
-            key="spec_ell_edges_csv",
-            help="e.g. 10, 50, 100, 500",
-        )
-        ell_edges = parse_csv_list(raw_ell, float) or None
-
-        st.markdown("**Spherical (HEALPix)**")
-        use_lmax = st.checkbox("Override lmax", value=False, key="spec_use_lmax")
-        lmax = None
-        if use_lmax:
-            lmax = st.number_input(
-                "lmax",
-                min_value=1,
-                value=511,
-                key="spec_lmax",
-                help="Default: 3*nside-1",
-            )
-        method = st.selectbox("SHT method", ["healpy", "jax"], key="spec_method")
-
-    with st.container(border=True):
-        st.subheader("3D P(k)")
-
-        k_mode = st.radio(
-            "k bins",
-            ["Auto", "Custom Edges", "Custom dk"],
-            horizontal=True,
-            key="spec_k_mode",
-            help="Auto: CLI defaults. Custom Edges: explicit bin edges. Custom dk: uniform bins.",
-        )
-        kedges = dk = kmax = None
-        if k_mode == "Custom Edges":
-            raw = st.text_input(
-                "kedges (comma-separated)",
-                value="",
-                key="spec_kedges_csv",
-                help="e.g. 1e-3, 5e-3, 1e-2, 1e-1",
-            )
-            kedges = parse_csv_list(raw, float) or None
-        elif k_mode == "Custom dk":
-            dk_col, kmax_col = st.columns(2)
-            with dk_col:
-                dk = st.number_input("dk", value=0.01, format="%.4f", key="spec_dk")
-            with kmax_col:
-                kmax = st.number_input(
-                    "kmax", value=1.0, format="%.4f", key="spec_kmax"
-                )
-
-        multipoles = render_dynamic_list(
-            "multipoles", "spec_multipoles", ["0"], cast_fn=int
-        ) or [0]
-
-        lo1, lo2, lo3 = st.columns(3)
-        with lo1:
-            los_x = st.number_input("LOS x", value=0.0, format="%.2f", key="spec_los_x")
-        with lo2:
-            los_y = st.number_input("LOS y", value=0.0, format="%.2f", key="spec_los_y")
-        with lo3:
-            los_z = st.number_input("LOS z", value=1.0, format="%.2f", key="spec_los_z")
-
-    with st.container(border=True):
-        st.subheader("Common")
-        bs_col, x64_col = st.columns(2)
-        with bs_col:
-            use_batch = st.checkbox("Set batch size", value=False, key="spec_use_batch")
-            batch_size = None
-            if use_batch:
-                batch_size = st.number_input(
-                    "batch_size", min_value=1, value=4, key="spec_batch_size"
-                )
-        with x64_col:
-            enable_x64 = st.checkbox("enable_x64", value=False, key="spec_enable_x64")
-
-# ── Build command ─────────────────────────────────────────────────────────────
-params = {**slurm}
-params.update(
-    {
-        "folder": folder,
-        "regex": regex,
-        "recursive": recursive,
-        "force_regen": force_regen,
-        "normalization": normalization,
-        "ell_edges": ell_edges,
-        "lmax": lmax,
-        "method": method,
-        "kedges": kedges,
-        "dk": dk,
-        "kmax": kmax,
-        "multipoles": multipoles,
-        "los": [los_x, los_y, los_z],
-        "batch_size": batch_size,
-        "enable_x64": enable_x64,
-    }
-)
+params = {
+    **slurm,
+    **scan,
+    **flat,
+    **spherical,
+    **density,
+    **common,
+}
 
 cmd = build_command("spectra", params)
 

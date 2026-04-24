@@ -44,7 +44,7 @@ _INTEGRATION_SPEC = [
     ("t0", float, 0.001),
     ("t1", float, 1.0),
     ("nb-steps", int, 30),
-    ("nb-shells", int, 10),
+    ("nb-shells", "optional_int", None),
     ("interp", str, "none"),
     ("solver", str, "kdk"),
     ("time-stepping", str, "a"),
