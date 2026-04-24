@@ -75,10 +75,13 @@ with c2:
         st.subheader("Angular C_ell")
 
         st.markdown("**Flat-sky**")
-        ell_edges = (
-            render_dynamic_list("ell_edges", "spec_ell_edges", [], cast_fn=float)
-            or None
+        raw_ell = st.text_input(
+            "ell_edges (comma-separated)",
+            value="",
+            key="spec_ell_edges_csv",
+            help="e.g. 10, 50, 100, 500",
         )
+        ell_edges = parse_csv_list(raw_ell, float) or None
 
         st.markdown("**Spherical (HEALPix)**")
         use_lmax = st.checkbox("Override lmax", value=False, key="spec_use_lmax")
