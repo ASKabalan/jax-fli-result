@@ -15,8 +15,8 @@ import matplotlib.lines as mlines
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.figure import Figure
 import streamlit as st
+from matplotlib.figure import Figure
 
 from .utils import (
     _COLOR_THEORY,
@@ -463,7 +463,6 @@ def _build_cl_ratio_only_theory(
             color = _PALETTE[ci % len(_PALETTE)]
             cl_s = _cl_slice(cl, i, ns)
             (cl_s / th_s).plot(ax=ax, logx=True, color=color, legend=False, label=lbl)
- 
 
         ax.set_title(_make_title(title_template, spectra_results[0][1], i))
         ylabel = "Ratio\n(vs Theory)" if col == 0 else ""

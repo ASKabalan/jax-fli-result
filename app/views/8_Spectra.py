@@ -117,7 +117,9 @@ with c2:
             with dk_col:
                 dk = st.number_input("dk", value=0.01, format="%.4f", key="spec_dk")
             with kmax_col:
-                kmax = st.number_input("kmax", value=1.0, format="%.4f", key="spec_kmax")
+                kmax = st.number_input(
+                    "kmax", value=1.0, format="%.4f", key="spec_kmax"
+                )
 
         multipoles = render_dynamic_list(
             "multipoles", "spec_multipoles", ["0"], cast_fn=int
