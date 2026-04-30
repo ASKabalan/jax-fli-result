@@ -69,7 +69,9 @@ def render_spectra_flat_form(prefix: str = "", defaults: dict | None = None) -> 
     return {"ell_edges": ell_edges}
 
 
-def render_spectra_spherical_form(prefix: str = "", defaults: dict | None = None) -> dict:
+def render_spectra_spherical_form(
+    prefix: str = "", defaults: dict | None = None
+) -> dict:
     """Mirror add_spectra_spherical_args: spherical HEALPix Cl settings."""
     defaults = defaults or {}
     with st.container(border=True):

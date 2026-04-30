@@ -21,6 +21,13 @@ from __future__ import annotations
 #   optional_int / optional_str / optional_float / optional_list — skipped when None
 # ---------------------------------------------------------------------------
 
+_DISTRIBUTED_SPEC = [
+    ("nodes", int, 1),
+    ("pdim", list, [1, 1]),
+]
+
+_DISTRIBUTED_SUBCOMMANDS = {"simulate", "samples", "infer", "extract", "born-rt"}
+
 _SLURM_SPEC = [
     ("mode", str, "dryrun"),
     ("account", str, "XXX"),
@@ -271,13 +278,25 @@ def build_command(subcommand: str, params: dict) -> str:
     if subcommand not in _SUBCOMMAND_SPECS:
         raise ValueError(f"Unknown subcommand: {subcommand!r}")
 
+    positional_first = "folder" if subcommand == "spectra" else None
+
+    if params.get("mode") == "command_only":
+        parts: list[str] = [f"fli-{subcommand}"]
+        if subcommand in _DISTRIBUTED_SUBCOMMANDS:
+            _emit(parts, _DISTRIBUTED_SPEC, params)
+        _emit(
+            parts,
+            _SUBCOMMAND_SPECS[subcommand],
+            params,
+            positional_first=positional_first,
+        )
+        return " ".join(parts)
+
     parts: list[str] = ["fli-launcher"]
     _emit(parts, _SLURM_SPEC, params)
 
     parts += ["--", f"fli-{subcommand}"]
 
-    # fli-spectra takes `folder` positionally; everything else takes --flag VALUE.
-    positional_first = "folder" if subcommand == "spectra" else None
     _emit(
         parts, _SUBCOMMAND_SPECS[subcommand], params, positional_first=positional_first
     )

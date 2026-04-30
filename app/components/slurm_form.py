@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import streamlit as st
 
+_MODES = ["dryrun", "local", "sbatch", "command_only"]
+
 
 def render_slurm_form(
     defaults: dict | None = None,
@@ -17,34 +19,44 @@ def render_slurm_form(
         # ── Dispatch mode ────────────────────────────────────────────────────
         mode = st.selectbox(
             "Dispatch mode",
-            ["dryrun", "local", "sbatch"],
-            index=["dryrun", "local", "sbatch"].index(defaults.get("mode", "dryrun")),
+            _MODES,
+            index=_MODES.index(defaults.get("mode", "dryrun")),
             key=f"{prefix}mode",
         )
+
+        slurm_only = mode == "command_only"
 
         # ── Cluster settings ─────────────────────────────────────────────────
         c1, c2 = st.columns(2)
         with c1:
             account = st.text_input(
-                "Account", value=defaults.get("account", "XXX"), key=f"{prefix}account"
+                "Account",
+                value=defaults.get("account", "XXX"),
+                key=f"{prefix}account",
+                disabled=slurm_only,
             )
         with c2:
             constraint = st.text_input(
                 "Constraint",
                 value=defaults.get("constraint", "h100"),
                 key=f"{prefix}constraint",
+                disabled=slurm_only,
             )
 
         c3, c4 = st.columns(2)
         with c3:
             qos = st.text_input(
-                "QoS", value=defaults.get("qos", "qos_gpu_h100-t3"), key=f"{prefix}qos"
+                "QoS",
+                value=defaults.get("qos", "qos_gpu_h100-t3"),
+                key=f"{prefix}qos",
+                disabled=slurm_only,
             )
         with c4:
             time_limit = st.text_input(
                 "Time limit",
                 value=defaults.get("time_limit", "00:30:00"),
                 key=f"{prefix}time_limit",
+                disabled=slurm_only,
             )
 
         # ── Nodes / GPUs ──────────────────────────────────────────────────────
@@ -63,6 +75,7 @@ def render_slurm_form(
                 value=defaults.get("gpus_per_node", 4),
                 key=f"{prefix}gpus_per_node",
                 help="tasks-per-node will equal this value (one task per GPU is the only supported mode)",
+                disabled=slurm_only,
             )
 
         cpus_per_node = st.number_input(
@@ -70,6 +83,7 @@ def render_slurm_form(
             min_value=1,
             value=defaults.get("cpus_per_node", 16),
             key=f"{prefix}cpus_per_node",
+            disabled=slurm_only,
         )
 
         # tasks_per_node: shown only when explicitly requested (e.g. Dorian CPU jobs)
@@ -82,6 +96,7 @@ def render_slurm_form(
                 value=tasks_per_node_val,
                 key=f"{prefix}tasks_per_node",
                 help="Number of MPI tasks per node (CPU jobs only — GPU jobs derive this from GPUs per node)",
+                disabled=slurm_only,
             )
 
         # ── pdim with validation (GPU jobs only) ─────────────────────────────
@@ -101,7 +116,7 @@ def render_slurm_form(
 
             pdim_product = px * py
             node_gpu_product = nodes * gpus_per_node
-            if pdim_product != node_gpu_product:
+            if not slurm_only and pdim_product != node_gpu_product:
                 st.error(
                     f"pdim product ({px} × {py} = {pdim_product}) ≠ "
                     f"nodes × GPUs/node ({nodes} × {gpus_per_node} = {node_gpu_product})"
