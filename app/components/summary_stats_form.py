@@ -8,7 +8,9 @@ from app.components.dynamic_list import parse_csv_list, render_dynamic_list
 _PAINT_ORDERS = ["ngp", "cic", "tsc", "pcs"]
 
 
-def render_summary_stats_scan_form(prefix: str = "", defaults: dict | None = None) -> dict:
+def render_summary_stats_scan_form(
+    prefix: str = "", defaults: dict | None = None
+) -> dict:
     """Mirror add_summary_stats_scan_args: folder scan and filter settings."""
     defaults = defaults or {}
     with st.container(border=True):
@@ -56,7 +58,9 @@ def render_summary_stats_scan_form(prefix: str = "", defaults: dict | None = Non
     }
 
 
-def render_summary_stats_flat_form(prefix: str = "", defaults: dict | None = None) -> dict:
+def render_summary_stats_flat_form(
+    prefix: str = "", defaults: dict | None = None
+) -> dict:
     """Mirror add_summary_stats_flat_args: flat-sky angular Cl bin edges."""
     defaults = defaults or {}
     with st.container(border=True):
@@ -101,7 +105,9 @@ def render_summary_stats_spherical_form(
     return {"lmax": lmax, "method": method}
 
 
-def render_summary_stats_density_form(prefix: str = "", defaults: dict | None = None) -> dict:
+def render_summary_stats_density_form(
+    prefix: str = "", defaults: dict | None = None
+) -> dict:
     """Mirror add_summary_stats_density_args: 3D P(k) bin configuration + window corrections."""
     defaults = defaults or {}
     with st.container(border=True):
@@ -190,7 +196,9 @@ def render_summary_stats_density_form(prefix: str = "", defaults: dict | None = 
     }
 
 
-def render_summary_stats_mask_form(prefix: str = "", defaults: dict | None = None) -> dict:
+def render_summary_stats_mask_form(
+    prefix: str = "", defaults: dict | None = None
+) -> dict:
     """Mirror add_summary_stats_mask_args: spherical footprint mask + apodization.
 
     The mask restricts the observed footprint of spherical maps before the statistic is computed.
@@ -261,7 +269,9 @@ def render_summary_stats_mask_form(prefix: str = "", defaults: dict | None = Non
     }
 
 
-def render_summary_stats_common_form(prefix: str = "", defaults: dict | None = None) -> dict:
+def render_summary_stats_common_form(
+    prefix: str = "", defaults: dict | None = None
+) -> dict:
     """Mirror add_summary_stats_common_args + add_common_args: batch size and x64 precision."""
     defaults = defaults or {}
     with st.container(border=True):
