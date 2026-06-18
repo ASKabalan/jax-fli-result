@@ -1,32 +1,43 @@
 [build-system]
-requires = ["setuptools>=61", "wheel"]
-build-backend = "setuptools.build_meta"
+build-backend = "hatchling.build"
+requires = ["hatchling", "hatch-vcs"]
 
 [project]
 name = "jax-fli-launcher"
-version = "0.1.0"
-description = "CLI and GUI launcher for jax-fli simulation jobs"
-requires-python = ">=3.10"
+description = "Streamlit GUI launcher for jax-fli simulation jobs"
+readme = "README.md"
+requires-python = ">=3.11"
+dynamic = ["version"]
 dependencies = [
-    "jax-fli[catalog,benchmark] @ git+https://github.com/ASKabalan/jax-fli",
+    "jax-fli[catalog,plot]",
     "streamlit>=1.30",
-    "matplotlib>=3.0",
     "plotly>=5.0",
+    "matplotlib>=3.0",
 ]
 
-[project.optional-dependencies]
-raytrace = [
-    "jax-fli[raytrace] @ git+https://github.com/ASKabalan/jax-fli",
-]
-sampling = [
-    "jax-fli[sampling] @ git+https://github.com/ASKabalan/jax-fli",
-]
-plot = [
-    "jax-fli[plot] @ git+https://github.com/ASKabalan/jax-fli",
-]
+[dependency-groups]
+dev = ["prek", "pyright", "ruff", "toml-sort"]
 
-[tool.setuptools.packages.find]
-include = ["app*"]
+[tool.uv]
+# Don't install any dependency group by default (uv's built-in default is ["dev"]).
+default-groups = []
+
+# Consume jax-fli from git. uv propagates a git dependency's own [tool.uv.sources]
+# transitively, so jax-fli's fork pins for jaxpm / jax-cosmo / s2fft (the forks the
+# Analysis tab needs) resolve automatically from jax-fli's pyproject — no need to (and we
+# must not) redeclare them here, which would raise a "conflicting URLs" error. uv strips
+# sources at build time, so the published wheel depends only on the plain PyPI names.
+[tool.uv.sources]
+jax-fli = { git = "https://github.com/ASKabalan/jax-fli" }
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+
+[tool.hatch.build.targets.sdist]
+include = ["app", "README.md"]
 
 [tool.ruff]
 line-length = 88

@@ -88,9 +88,19 @@ def render_lensing_form(defaults: dict | None = None, prefix: str = "") -> dict:
             key=f"{prefix}n_integrate",
         )
 
+        _lo_opts = ["convergence", "shear", "reduced_shear"]
+        lensing_output = st.selectbox(
+            "lensing_output",
+            _lo_opts,
+            index=_lo_opts.index(defaults.get("lensing_output", "convergence")),
+            key=f"{prefix}lensing_output",
+            help="Lensing observable emitted by the model",
+        )
+
         return {
             "nz_shear": nz_shear,
             "min_z": min_z,
             "max_z": max_z,
             "n_integrate": n_integrate,
+            "lensing_output": lensing_output,
         }

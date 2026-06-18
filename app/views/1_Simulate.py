@@ -33,9 +33,10 @@ c1, c2, c3 = st.columns([1, 1, 1])
 with c2:
     integration = render_integration_form(
         prefix="sim_",
-        default_sim_type="nbody",
+        default_sim_type="pm",
         default_nb_shells=10,
         default_nb_steps=30,
+        show_grad=True,
     )
 
 with c1:
@@ -99,6 +100,9 @@ params = {
     "exact_growth": integration["exact_growth"],
     "gradient_order": integration["gradient_order"],
     "laplace_fd": integration["laplace_fd"],
+    "paint_order": integration["paint_order"],
+    "deconvolution": integration["deconvolution"],
+    "grad": integration["grad"],
     "density_widths": integration["density_widths"],
     "ts": integration["ts"],
     "ts_near": integration["ts_near"],
@@ -110,7 +114,7 @@ params = {
     **{
         k: v
         for k, v in integration.items()
-        if k in ("nz_shear", "min_z", "max_z", "n_integrate")
+        if k in ("nz_shear", "min_z", "max_z", "n_integrate", "lensing_output")
     },
     # Simulation settings
     "mesh_size": sim["mesh_size"],
@@ -121,6 +125,8 @@ params = {
     "scheme": sim["scheme"],
     "paint_nside": sim["paint_nside"],
     "kernel_width_arcmin": sim["kernel_width_arcmin"],
+    "kernel_width_pixels": sim["kernel_width_pixels"],
+    "apodization_scale_deg": sim["apodization_scale_deg"],
     "enable_x64": sim["enable_x64"],
     "nside": sim.get("nside"),
     "flatsky_npix": sim.get("flatsky_npix"),

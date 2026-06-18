@@ -1,13 +1,15 @@
-"""Spectra argument forms — mirror the five add_spectra_*_args groups in parser.py."""
+"""Summary-statistics argument forms — mirror the add_summary_stats_*_args groups in parser.py."""
 from __future__ import annotations
 
 import streamlit as st
 
 from app.components.dynamic_list import parse_csv_list, render_dynamic_list
 
+_PAINT_ORDERS = ["ngp", "cic", "tsc", "pcs"]
 
-def render_spectra_scan_form(prefix: str = "", defaults: dict | None = None) -> dict:
-    """Mirror add_spectra_scan_args: folder scan and filter settings."""
+
+def render_summary_stats_scan_form(prefix: str = "", defaults: dict | None = None) -> dict:
+    """Mirror add_summary_stats_scan_args: folder scan and filter settings."""
     defaults = defaults or {}
     with st.container(border=True):
         st.subheader("Scan")
@@ -54,8 +56,8 @@ def render_spectra_scan_form(prefix: str = "", defaults: dict | None = None) -> 
     }
 
 
-def render_spectra_flat_form(prefix: str = "", defaults: dict | None = None) -> dict:
-    """Mirror add_spectra_flat_args: flat-sky angular Cl bin edges."""
+def render_summary_stats_flat_form(prefix: str = "", defaults: dict | None = None) -> dict:
+    """Mirror add_summary_stats_flat_args: flat-sky angular Cl bin edges."""
     defaults = defaults or {}
     with st.container(border=True):
         st.subheader("Flat-sky C_ell")
@@ -69,10 +71,10 @@ def render_spectra_flat_form(prefix: str = "", defaults: dict | None = None) -> 
     return {"ell_edges": ell_edges}
 
 
-def render_spectra_spherical_form(
+def render_summary_stats_spherical_form(
     prefix: str = "", defaults: dict | None = None
 ) -> dict:
-    """Mirror add_spectra_spherical_args: spherical HEALPix Cl settings."""
+    """Mirror add_summary_stats_spherical_args: spherical HEALPix Cl settings."""
     defaults = defaults or {}
     with st.container(border=True):
         st.subheader("Spherical C_ell")
@@ -99,8 +101,8 @@ def render_spectra_spherical_form(
     return {"lmax": lmax, "method": method}
 
 
-def render_spectra_density_form(prefix: str = "", defaults: dict | None = None) -> dict:
-    """Mirror add_spectra_density_args: 3D P(k) bin configuration."""
+def render_summary_stats_density_form(prefix: str = "", defaults: dict | None = None) -> dict:
+    """Mirror add_summary_stats_density_args: 3D P(k) bin configuration + window corrections."""
     defaults = defaults or {}
     with st.container(border=True):
         st.subheader("3D P(k)")
@@ -159,17 +161,108 @@ def render_spectra_density_form(prefix: str = "", defaults: dict | None = None) 
             los_z = st.number_input(
                 "LOS z", value=float(_los[2]), format="%.2f", key=f"{prefix}los_z"
             )
+
+        co_col, sn_col = st.columns(2)
+        with co_col:
+            _co = st.selectbox(
+                "compensate_order",
+                ["off", *_PAINT_ORDERS],
+                key=f"{prefix}compensate_order",
+                help="Deconvolve the mass-assignment window of this order from P(k).",
+            )
+            compensate_order = None if _co == "off" else _co
+        with sn_col:
+            _sn = st.selectbox(
+                "shotnoise_order",
+                ["off", *_PAINT_ORDERS],
+                key=f"{prefix}shotnoise_order",
+                help="Subtract aliased shot noise for this assignment order (auto-spectrum).",
+            )
+            shotnoise_order = None if _sn == "off" else _sn
     return {
         "kedges": kedges,
         "dk": dk,
         "kmax": kmax,
         "multipoles": multipoles,
         "los": [los_x, los_y, los_z],
+        "compensate_order": compensate_order,
+        "shotnoise_order": shotnoise_order,
     }
 
 
-def render_spectra_common_form(prefix: str = "", defaults: dict | None = None) -> dict:
-    """Mirror add_spectra_common_args: shared batch size and precision settings."""
+def render_summary_stats_mask_form(prefix: str = "", defaults: dict | None = None) -> dict:
+    """Mirror add_summary_stats_mask_args: spherical footprint mask + apodization.
+
+    The mask restricts the observed footprint of spherical maps before the statistic is computed.
+    """
+    defaults = defaults or {}
+    _MODES = ["infer_from_observer_position", "none", "des_y3", "file (path)"]
+    with st.container(border=True):
+        st.subheader("Mask (spherical maps)")
+        _default = defaults.get("mask", "infer_from_observer_position")
+        _mode_default = _default if _default in _MODES else "file (path)"
+        mode = st.selectbox(
+            "mask",
+            _MODES,
+            index=_MODES.index(_mode_default),
+            key=f"{prefix}mask_mode",
+            help="Footprint for spherical stats; 'infer_from_observer_position' is a no-op for a "
+            "centered observer.",
+        )
+        if mode == "file (path)":
+            mask = (
+                st.text_input(
+                    "mask path",
+                    value=_default if _default not in _MODES else "",
+                    key=f"{prefix}mask_path",
+                    help="Path to a HEALPix map (.npy / .npz / .fits).",
+                ).strip()
+                or "none"
+            )
+        else:
+            mask = mode
+
+        apodization_scale_deg = st.number_input(
+            "apodization_scale_deg",
+            min_value=0.0,
+            value=float(defaults.get("apodization_scale_deg", 1.0)),
+            format="%.2f",
+            key=f"{prefix}apodization_scale_deg",
+            help="C2 apodization scale (deg) applied to the mask.",
+        )
+
+        override_obs = st.checkbox(
+            "override observer position",
+            value=defaults.get("observer_position") is not None,
+            key=f"{prefix}override_obs",
+            help="By default the observer position is read from the field metadata.",
+        )
+        observer_position = None
+        if override_obs:
+            _obs = defaults.get("observer_position") or [0.5, 0.5, 0.5]
+            oc1, oc2, oc3 = st.columns(3)
+            with oc1:
+                ox = st.number_input(
+                    "OX", value=float(_obs[0]), format="%.2f", key=f"{prefix}obs_x"
+                )
+            with oc2:
+                oy = st.number_input(
+                    "OY", value=float(_obs[1]), format="%.2f", key=f"{prefix}obs_y"
+                )
+            with oc3:
+                oz = st.number_input(
+                    "OZ", value=float(_obs[2]), format="%.2f", key=f"{prefix}obs_z"
+                )
+            observer_position = [ox, oy, oz]
+    return {
+        "mask": mask,
+        "apodization_scale_deg": apodization_scale_deg,
+        "observer_position": observer_position,
+    }
+
+
+def render_summary_stats_common_form(prefix: str = "", defaults: dict | None = None) -> dict:
+    """Mirror add_summary_stats_common_args + add_common_args: batch size and x64 precision."""
     defaults = defaults or {}
     with st.container(border=True):
         st.subheader("Common")

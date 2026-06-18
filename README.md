@@ -1,39 +1,39 @@
----
-configs:
-  - config_name: 01-step_size_cosmology
-    data_files: "01-step_size_selection/catalogs/*.parquet"
-  - config_name: 01-step_size_perf
-    data_files: "01-step_size_selection/perf.csv"
----
+# jax-fli-launcher
 
-# N-Body Simulation Experiments
-This repository tracks data, performance metrics, and logs across different simulation runs.
+**Streamlit GUI for launching [jax-fli](https://github.com/ASKabalan/jax-fli) simulation jobs.**
 
-## Data Organization
+A point-and-click front end over the `fli-*` command-line tools shipped by `jax-fli`. Each
+view builds a single `fli-launcher` command (SLURM block + `fli-<subcommand>` flags) with a
+live preview, and dispatches it in `dryrun` / `local` / `sbatch` mode. An in-app **Analysis**
+tab loads catalogs (incl. from the HuggingFace dataset) and plots density / spherical /
+kappa diagnostics and summary statistics.
 
-Each experiment has a dedicated catalog folder containing the parquet files with the data. The `perf.csv` file contains performance metrics for each experiment.
-Not all experiments have perf.csv files
+## Installation
 
-Files are stored in hugging face in repo `repo_id = "ASKabalan/jax-fli-experiments"`
+This project is managed with [uv](https://docs.astral.sh/uv/) and a committed `uv.lock`
+for reproducibility. Dependency groups are **not** installed by default:
 
-
-
-## Experiments
-
-
-### 01 Step size selection
-
-The goal of this experiment to select the optimal size of the time step of the PM solver.
-
-We test with mesh sizes from `512³` to `4096³` and with 5 different time step sizes for each mesh size. The time step sizes are selected such that the total number of steps is in `[5, 10, 20, 30, 40, 50]`.
-`
-Analysis notebook : [01-step_size.ipynb](https://github.com/ASKabalan/jax-fli-result/blob/main/analysis/01-step_size.ipynb)
-
-config name : `01-step_size_cosmology`
-
-to load
-
-```python
-from datasets import load_dataset
-dataset = load_dataset("ASKabalan/jax-fli-experiments", "01-step_size_cosmology")
+```bash
+uv sync                  # app + jax-fli[catalog,plot] + streamlit/plotly/matplotlib
+uv sync --group dev      # + dev tooling: ruff, pyright, prek, toml-sort
 ```
+
+> **Note:** `jax-fli` (and its `jaxpm` / `jax-cosmo` / `s2fft` forks) are pinned to git
+> branches via `[tool.uv.sources]`, which **only `uv` reads** — installing with plain `pip`
+> would fetch the upstream PyPI releases instead of the forks the Analysis tab needs, so
+> use `uv`.
+
+## Running
+
+```bash
+uv run streamlit run app/Home.py
+```
+
+## Structure
+
+- `app/Home.py` — navigation router / entry point
+- `app/views/<N>_<Name>.py` — one page per `fli-*` subcommand (Simulate, Samples,
+  Inference, Extract, Born/Dorian RT, Spectra) plus the Analysis tab (`9_Analysis.py` +
+  `app/views/_9_Analysis/`)
+- `app/components/` — reusable form renderers and the command builder
+- `MAPPING.md` — form ↔ CLI flag mapping for every view
