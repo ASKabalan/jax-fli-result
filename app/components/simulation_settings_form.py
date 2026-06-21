@@ -123,6 +123,8 @@ def render_simulation_settings(
         scheme = defaults.get("scheme", "bilinear")
         paint_nside = None
         kernel_width_arcmin = None
+        kernel_width_pixels = None
+        pixel_window_deconvolution = False
 
         _out_options = ["Spherical (nside)", "Flat sky", "Density", "Particles"]
         _default_out = defaults.get("output_target", "Spherical (nside)")
@@ -159,13 +161,23 @@ def render_simulation_settings(
                 key=f"{prefix}paint_nside",
             )
             if scheme == "rbf_neighbor":
-                with st.expander("RBF parameters"):
-                    activate_rbf = st.checkbox(
-                        "Activate kernel width",
-                        value=False,
-                        key=f"{prefix}activate_rbf",
+                with st.expander("RBF kernel width"):
+                    _kw_unit = st.radio(
+                        "kernel width unit",
+                        ["none", "pixels", "arcmin"],
+                        horizontal=True,
+                        key=f"{prefix}kw_unit",
+                        help="pixels = HEALPix pixels (e.g. 0.8); arcmin = absolute angular width",
                     )
-                    if activate_rbf:
+                    if _kw_unit == "pixels":
+                        kernel_width_pixels = st.number_input(
+                            "kernel_width_pixels",
+                            value=float(defaults.get("kernel_width_pixels", 0.8)),
+                            min_value=0.01,
+                            format="%.2f",
+                            key=f"{prefix}kernel_width_pixels",
+                        )
+                    elif _kw_unit == "arcmin":
                         kernel_width_arcmin = st.number_input(
                             "kernel_width_arcmin",
                             value=float(defaults.get("kernel_width_arcmin", 5.0)),
@@ -173,6 +185,15 @@ def render_simulation_settings(
                             format="%.2f",
                             key=f"{prefix}kernel_width_arcmin",
                         )
+
+            pixel_window_deconvolution = st.checkbox(
+                "pixel_window_deconvolution",
+                value=bool(defaults.get("pixel_window_deconvolution", False)),
+                disabled=(scheme == "bilinear"),
+                key=f"{prefix}pixel_window_deconvolution",
+                help="Deconvolve the HEALPix painting window after painting (a_lm level), "
+                "distinct from the 3D force deconvolution. Requires scheme ngp or rbf_neighbor.",
+            )
 
         elif output_target == "Flat sky":
             st.write("**Pixels (H × W)**")
@@ -211,6 +232,14 @@ def render_simulation_settings(
 
         # Particles: no extra inputs needed
 
+        apodization_scale_deg = st.number_input(
+            "apodization_scale_deg",
+            value=float(defaults.get("apodization_scale_deg", 1.0)),
+            min_value=0.0,
+            format="%.2f",
+            key=f"{prefix}apodization_scale_deg",
+            help="C2 apodization scale (deg) for the off-center observer visibility mask",
+        )
         enable_x64 = st.checkbox(
             "enable_x64",
             value=bool(defaults.get("enable_x64", False)),
@@ -235,6 +264,9 @@ def render_simulation_settings(
         "scheme": scheme,
         "paint_nside": paint_nside,
         "kernel_width_arcmin": kernel_width_arcmin,
+        "kernel_width_pixels": kernel_width_pixels,
+        "pixel_window_deconvolution": pixel_window_deconvolution,
+        "apodization_scale_deg": apodization_scale_deg,
     }
     result.update(
         {

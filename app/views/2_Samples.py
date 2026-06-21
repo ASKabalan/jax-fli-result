@@ -7,6 +7,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 import streamlit as st
 
 from app.components.command_builder import build_command
+from app.components.forward_model_form import render_forward_model_form
 from app.components.integration_form import render_integration_form
 from app.components.output_form import render_output_sample_form
 from app.components.prior_cosmo_form import render_prior_cosmo_form
@@ -63,6 +64,7 @@ with c1:
 with c3:
     output = render_output_sample_form(prefix="samp_")
     cosmo = render_prior_cosmo_form(prefix="samp_", show_ic=True)
+    forward_model = render_forward_model_form(prefix="samp_")
 
     with st.container(border=True):
         st.subheader("Samples Settings")
@@ -98,8 +100,7 @@ with top_right:
 params = {**slurm}
 params.update(
     {
-        # Integration
-        "sim_mode": integration["sim_mode"],
+        # Integration (no --sim-mode: fli-samples always runs the born lensing forward model)
         "lpt_order": integration["lpt_order"],
         "nb_steps": integration["nb_steps"],
         "t0": integration["t0"],
@@ -112,31 +113,38 @@ params.update(
         "exact_growth": integration["exact_growth"],
         "laplace_fd": integration["laplace_fd"],
         "gradient_order": integration["gradient_order"],
+        "paint_order": integration["paint_order"],
+        "deconvolution": integration["deconvolution"],
         "nb_shells": integration["nb_shells_for_cmd"],
         "ts": integration["ts"],
         "ts_near": integration["ts_near"],
         "ts_far": integration["ts_far"],
         "drift_on_lightcone": integration["drift_on_lightcone"],
         "min_width": integration["min_width"],
-        # Lensing
+        # Lensing (incl. lensing_output)
         **{
             k: v
             for k, v in integration.items()
-            if k in ("nz_shear", "min_z", "max_z", "n_integrate")
+            if k in ("nz_shear", "min_z", "max_z", "n_integrate", "lensing_output")
         },
-        # Simulation settings
+        # Simulation settings + output target
         "mesh_size": sim["mesh_size"],
         "box_size": sim["box_size"],
         "halo_multiplier": sim["halo_multiplier"],
         "observer_position": sim["observer_position"],
+        "apodization_scale_deg": sim.get("apodization_scale_deg"),
         "scheme": sim["scheme"],
         "paint_nside": sim["paint_nside"],
-        "kernel_width_arcmin": sim["kernel_width_arcmin"],
+        "kernel_width_arcmin": sim.get("kernel_width_arcmin"),
+        "kernel_width_pixels": sim.get("kernel_width_pixels"),
+        "pixel_window_deconvolution": sim.get("pixel_window_deconvolution", False),
         "enable_x64": sim["enable_x64"],
         "nside": sim.get("nside"),
         "flatsky_npix": sim.get("flatsky_npix"),
         "field_size": sim.get("field_size"),
         "density": sim.get("density", False),
+        # Forward-model likelihood (mask / sigma_unobserved / log_lightcone)
+        **forward_model,
         # Samples-specific
         "path": output["output_dir"],
         "model": model,

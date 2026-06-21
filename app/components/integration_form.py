@@ -14,6 +14,7 @@ def render_integration_form(
     default_nb_shells: int = 8,
     default_nb_steps: int = 30,
     show_density_widths: bool = False,
+    show_grad: bool = False,
 ) -> dict:
     """Render the integration settings form.
 
@@ -24,7 +25,7 @@ def render_integration_form(
     defaults:
         Optional overrides for default values.
     default_sim_type:
-        Initial simulation type: "lpt", "nbody", or "lensing".
+        Initial simulation type: "lpt", "pm", or "lensing".
     default_nb_shells:
         Default number of shells.
     default_nb_steps:
@@ -295,6 +296,44 @@ def render_integration_form(
                 key=f"{prefix}gradient_order",
                 help="1 = finite-difference, 0 = exact ik",
             )
+        po_col, dec_col = st.columns(2)
+        with po_col:
+            _po_opts = ["ngp", "cic", "tsc", "pcs"]
+            paint_order = st.selectbox(
+                "paint_order",
+                _po_opts,
+                index=_po_opts.index(defaults.get("paint_order", "cic")),
+                key=f"{prefix}paint_order",
+                help="Mass-assignment order for force painting/readout",
+            )
+        with dec_col:
+            deconvolution = st.checkbox(
+                "deconvolution",
+                value=bool(defaults.get("deconvolution", False)),
+                key=f"{prefix}deconvolution",
+                help="Deconvolve the mass-assignment window in the force computation",
+            )
+
+        grad = None
+        if show_grad:
+            _grad_opts = ["none", "reverse", "checkpoint", "checkpointed_N"]
+            _grad_sel = st.selectbox(
+                "grad (differentiate w.r.t. ICs)",
+                _grad_opts,
+                key=f"{prefix}grad",
+                help="reverse is valid only for single-snapshot --density output; use "
+                "checkpoint / checkpointed_N for any lightcone / lensing output.",
+            )
+            if _grad_sel == "checkpointed_N":
+                _ncp = st.number_input(
+                    "checkpoints (N)",
+                    min_value=1,
+                    value=int(defaults.get("checkpoints", 10)),
+                    key=f"{prefix}grad_ncp",
+                )
+                grad = f"checkpointed_{int(_ncp)}"
+            elif _grad_sel != "none":
+                grad = _grad_sel
 
         lensing = {}
         if simulation_type == "lensing":
@@ -323,5 +362,8 @@ def render_integration_form(
         "exact_growth": exact_growth,
         "laplace_fd": laplace_fd,
         "gradient_order": gradient_order,
+        "paint_order": paint_order,
+        "deconvolution": deconvolution,
+        "grad": grad,
         **lensing,
     }

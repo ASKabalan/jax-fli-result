@@ -108,7 +108,7 @@ def pk_tab(
             title_template = st.text_input(
                 "Panel title template",
                 value="χ %r% Mpc/h",
-                key="analysis_title_template",
+                key="analysis_pk_title_template",
                 help="%r% = comoving distance  |  %z% = redshift  |  %a% = scale factor",
             )
 

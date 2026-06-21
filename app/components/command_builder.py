@@ -4,10 +4,10 @@ Emits:
 
     fli-launcher <SLURM flags> -- fli-<subcommand> <script flags>
 
-The SLURM spec is shared across all subcommands (mirrors
-``jax_fli.scripts.parser.add_slurm_args``). Each subcommand has its own
-script-side spec below. ``build_command`` always returns a single string —
-gridding/sweeping is not supported (the launcher runs one job per call).
+The SLURM spec is shared across all subcommands. Each subcommand has its own script-side spec
+below, composed from one fragment per ``jax_fli.scripts.parser`` builder so the form/command stays
+a 1:1 mirror of the CLI. ``build_command`` always returns a single string — gridding/sweeping is
+not supported (the launcher runs one job per call).
 """
 from __future__ import annotations
 
@@ -20,6 +20,13 @@ from __future__ import annotations
 #   list                        — --flag v1 v2 ...
 #   optional_int / optional_str / optional_float / optional_list — skipped when None
 # ---------------------------------------------------------------------------
+
+_DISTRIBUTED_SPEC = [
+    ("nodes", int, 1),
+    ("pdim", list, [1, 1]),
+]
+
+_DISTRIBUTED_SUBCOMMANDS = {"simulate", "samples", "infer", "extract", "born-rt"}
 
 _SLURM_SPEC = [
     ("mode", str, "dryrun"),
@@ -36,10 +43,17 @@ _SLURM_SPEC = [
     ("pdim", list, [1, 1]),
 ]
 
-# Science-side spec fragments reused across several subcommands.
+# ---------------------------------------------------------------------------
+# Science-side spec fragments — one per jax_fli.scripts.parser builder.
+# ---------------------------------------------------------------------------
 
+# add_common_args
+_COMMON_SPEC = [
+    ("enable-x64", bool, False),
+]
+
+# add_integration_settings_args (NOTE: --sim-mode is fli-simulate-only, added in that spec)
 _INTEGRATION_SPEC = [
-    ("sim-mode", str, "lensing"),
     ("lpt-order", int, 2),
     ("t0", float, 0.001),
     ("t1", float, 1.0),
@@ -53,6 +67,8 @@ _INTEGRATION_SPEC = [
     ("exact-growth", bool, False),
     ("gradient-order", int, 1),
     ("laplace-fd", bool, False),
+    ("paint-order", str, "cic"),
+    ("deconvolution", bool, False),
     ("density-widths", "optional_list", None),
     ("ts", "optional_list", None),
     ("ts-near", "optional_list", None),
@@ -61,30 +77,40 @@ _INTEGRATION_SPEC = [
     ("min-width", float, 50.0),
 ]
 
+# add_lensing_args
 _LENSING_SPEC = [
     ("nz-shear", list, ["s3"]),
     ("min-z", float, 0.01),
     ("max-z", float, 1.5),
     ("n-integrate", int, 32),
+    ("lensing-output", str, "convergence"),
 ]
 
+# add_simulation_settings_args (box geometry + RNG)
 _SIM_SETTINGS_SPEC = [
     ("mesh-size", list, [64, 64, 64]),
-    ("box-size", list, [250.0, 250.0, 250.0]),
+    ("box-size", list, [200.0, 200.0, 200.0]),
     ("halo-multiplier", float, 0.5),
     ("observer-position", list, [0.5, 0.5, 0.5]),
+    ("apodization-scale-deg", float, 1.0),
     ("seed", int, 0),
-    ("scheme", str, "bilinear"),
-    ("paint-nside", "optional_int", None),
-    ("kernel-width-arcmin", "optional_float", None),
-    ("enable-x64", bool, False),
+]
+
+# add_output_target_args (projection target + painting scheme)
+_OUTPUT_TARGET_SPEC = [
     # Output target (mutually exclusive — only one should be set per call).
     ("nside", "optional_int", None),
     ("flatsky-npix", "optional_list", None),
     ("field-size", "optional_list", None),
     ("density", bool, False),
+    ("scheme", str, "bilinear"),
+    ("paint-nside", "optional_int", None),
+    ("kernel-width-arcmin", "optional_float", None),
+    ("kernel-width-pixels", "optional_float", None),
+    ("pixel-window-deconvolution", bool, False),
 ]
 
+# add_cosmo_args
 _COSMO_SPEC = [
     ("h", float, 0.6774),
     ("Omega-b", float, 0.0486),
@@ -97,6 +123,7 @@ _COSMO_SPEC = [
     ("sigma8", float, 0.8159),
 ]
 
+# add_prior_args
 _PRIOR_SPEC = [
     ("sample", list, ["cosmo", "ic"]),
     ("prior-omega-c", list, [0.1, 0.5]),
@@ -105,6 +132,7 @@ _PRIOR_SPEC = [
     ("prior-ic-gaussian", list, [0.0, 1.0]),
 ]
 
+# add_infer_args
 _INFER_SPEC = [
     ("initial-condition", "optional_str", None),
     ("init-cosmo", bool, False),
@@ -119,22 +147,65 @@ _INFER_SPEC = [
     ("no-progress-bar", bool, False),
 ]
 
+# add_forward_model_args (full-field likelihood: footprint mask + sigma + lightcone logging)
+_FORWARD_MODEL_SPEC = [
+    ("mask", "optional_str", None),
+    ("sigma-unobserved", float, 1e6),
+    ("log-lightcone", bool, False),
+]
+
+# add_summary_stats_* (folder scan + flat/spherical/density estimators + footprint mask)
+_SUMMARY_STATS_SPEC = [
+    # scan
+    ("folder", str, "results"),
+    ("regex", str, r".*\.parquet$"),
+    ("recursive", bool, False),
+    ("force-regen", bool, False),
+    ("normalization", str, "global"),
+    # flat-sky
+    ("ell-edges", "optional_list", None),
+    # spherical
+    ("lmax", "optional_int", None),
+    ("method", str, "healpy"),
+    # 3D P(k)
+    ("kedges", "optional_list", None),
+    ("kmax", "optional_float", None),
+    ("dk", "optional_float", None),
+    ("multipoles", list, [0]),
+    ("los", list, [0.0, 0.0, 1.0]),
+    ("compensate-order", "optional_str", None),
+    ("shotnoise-order", "optional_str", None),
+    # spherical footprint mask + apodization
+    ("mask", str, "infer_from_observer_position"),
+    ("apodization-scale-deg", float, 1.0),
+    ("observer-position", "optional_list", None),
+    # common
+    ("batch-size", "optional_int", None),
+]
+
 # Per-subcommand script specs (what goes AFTER the `--`).
 _SUBCOMMAND_SPECS: dict[str, list] = {
-    "simulate": _SIM_SETTINGS_SPEC
+    "simulate": [("sim-mode", str, "lensing")]
+    + _COMMON_SPEC
+    + _SIM_SETTINGS_SPEC
+    + _OUTPUT_TARGET_SPEC
     + _INTEGRATION_SPEC
     + _LENSING_SPEC
     + _COSMO_SPEC
     + [
+        ("grad", "optional_str", None),
         ("output", str, "sim_output.parquet"),
         ("name", "optional_str", None),
         ("perf", bool, False),
         ("iterations", int, 5),
     ],
-    "samples": _SIM_SETTINGS_SPEC
+    "samples": _COMMON_SPEC
+    + _SIM_SETTINGS_SPEC
+    + _OUTPUT_TARGET_SPEC
     + _INTEGRATION_SPEC
     + _LENSING_SPEC
     + _PRIOR_SPEC
+    + _FORWARD_MODEL_SPEC
     + [
         ("path", str, "test_fli_samples"),
         ("model", str, "full"),
@@ -143,16 +214,20 @@ _SUBCOMMAND_SPECS: dict[str, list] = {
         ("batch-id", int, 0),
         ("initial-condition", "optional_str", None),
     ],
-    "infer": _SIM_SETTINGS_SPEC
+    "infer": _COMMON_SPEC
+    + _SIM_SETTINGS_SPEC
+    + _OUTPUT_TARGET_SPEC
     + _INTEGRATION_SPEC
     + _LENSING_SPEC
     + _PRIOR_SPEC
     + _INFER_SPEC
+    + _FORWARD_MODEL_SPEC
     + [
         ("observable", str, ""),
         ("path", str, "results/inference_runs"),
     ],
-    "2pcf": _LENSING_SPEC
+    "2pcf": _COMMON_SPEC
+    + _LENSING_SPEC
     + _PRIOR_SPEC
     + [
         ("observable", str, ""),
@@ -172,7 +247,6 @@ _SUBCOMMAND_SPECS: dict[str, list] = {
         ("backend", str, "numpyro"),
         ("seed", int, 0),
         ("no-progress-bar", bool, False),
-        ("enable-x64", bool, False),
     ],
     "extract": [
         ("path", "optional_str", None),
@@ -185,14 +259,14 @@ _SUBCOMMAND_SPECS: dict[str, list] = {
         ("field-statistic", bool, False),
         ("power-statistic", bool, False),
         ("ddof", int, 0),
-        ("enable-x64", bool, False),
-    ],
+    ]
+    + _COMMON_SPEC,
     "born-rt": _LENSING_SPEC
     + [
         ("input", str, "results/cosmology_runs"),
         ("output", str, "results/lensing/multi_shell"),
-        ("enable-x64", bool, False),
-    ],
+    ]
+    + _COMMON_SPEC,
     "dorian-rt": _LENSING_SPEC
     + [
         ("input", str, "results/cosmology_runs"),
@@ -200,23 +274,7 @@ _SUBCOMMAND_SPECS: dict[str, list] = {
         ("rt-interp", str, "bilinear"),
         ("no-parallel-transport", bool, False),
     ],
-    "spectra": [
-        ("folder", str, "results"),
-        ("regex", str, r".*\.parquet$"),
-        ("recursive", bool, False),
-        ("force-regen", bool, False),
-        ("normalization", str, "global"),
-        ("ell-edges", "optional_list", None),
-        ("lmax", "optional_int", None),
-        ("kmax", "optional_float", None),
-        ("dk", "optional_float", None),
-        ("method", str, "healpy"),
-        ("kedges", "optional_list", None),
-        ("multipoles", list, [0]),
-        ("los", list, [0.0, 0.0, 1.0]),
-        ("batch-size", "optional_int", None),
-        ("enable-x64", bool, False),
-    ],
+    "summary-stats": _SUMMARY_STATS_SPEC + _COMMON_SPEC,
 }
 
 
@@ -232,7 +290,7 @@ def _emit(
 
     If ``positional_first`` is set, the matching spec entry is emitted as a
     positional argument (no ``--flag`` prefix) at the front. Used by
-    ``fli-spectra`` where ``folder`` is positional.
+    ``fli-summary-stats`` where ``folder`` is positional.
     """
     positional_value = None
     for flag, typ, _ in spec:
@@ -271,13 +329,25 @@ def build_command(subcommand: str, params: dict) -> str:
     if subcommand not in _SUBCOMMAND_SPECS:
         raise ValueError(f"Unknown subcommand: {subcommand!r}")
 
+    positional_first = "folder" if subcommand == "summary-stats" else None
+
+    if params.get("mode") == "command_only":
+        parts: list[str] = [f"fli-{subcommand}"]
+        if subcommand in _DISTRIBUTED_SUBCOMMANDS:
+            _emit(parts, _DISTRIBUTED_SPEC, params)
+        _emit(
+            parts,
+            _SUBCOMMAND_SPECS[subcommand],
+            params,
+            positional_first=positional_first,
+        )
+        return " ".join(parts)
+
     parts: list[str] = ["fli-launcher"]
     _emit(parts, _SLURM_SPEC, params)
 
     parts += ["--", f"fli-{subcommand}"]
 
-    # fli-spectra takes `folder` positionally; everything else takes --flag VALUE.
-    positional_first = "folder" if subcommand == "spectra" else None
     _emit(
         parts, _SUBCOMMAND_SPECS[subcommand], params, positional_first=positional_first
     )

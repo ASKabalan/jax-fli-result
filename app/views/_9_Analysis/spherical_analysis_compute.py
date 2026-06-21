@@ -265,7 +265,6 @@ def _build_cl_with_theory_ratio(
             cl_s.plot(ax=ax_main, logx=True, logy=True, label=label, color=color)
             # ylims is 1e-7 5e-2
             ax_main.set_ylim(1e-7, 5e-2)
-            print(f"here: {i}")
         ax_main.grid(True, which="both", ls="--", alpha=0.2)
         ax_main.set_title(_make_title(title_template, spectra_results[0][1], i))
         if col == 0:
@@ -624,6 +623,22 @@ def _slice_results_to_shells(
 # ---------------------------------------------------------------------------
 
 
+def _observer_visibility_mask(field):
+    """Apodized observer-visibility footprint inferred from the field's observer
+    position. Returns None for a centered observer (whole sky) — i.e. no footprint
+    restriction. Apodization scale fixed at 1.0 deg (matches fli-simulate /
+    fli-summary-stats); not user-configurable by design."""
+    import jax_fli as jfli
+
+    nside = getattr(field, "nside", None)
+    if nside is None:
+        return None
+    mask = jfli.data.build_observer_visibility_mask(
+        tuple(field.observer_position), nside, 1.0
+    )
+    return None if np.ndim(mask) == 0 else mask
+
+
 def compute_cls(
     active_entries: list[dict],
     lmin: int,
@@ -647,7 +662,12 @@ def compute_cls(
             fld = fld.to(OVERDENSITY, normalization="per_plane")
         elif ft not in ("SphericalKappaField"):
             raise ValueError(f"Unsupported field type for Cl computation: {ft}")
-        cl = fld.angular_cl(lmax=int(lmax), method="healpy")[..., int(lmin) :]
+        mask = _observer_visibility_mask(fld)
+        ps = fld.angular_cl(lmax=int(lmax), method="healpy", mask=mask)
+        lmin_idx = int(np.searchsorted(np.asarray(ps.wavenumber), int(lmin)))
+        cl = ps.replace(
+            array=ps.array[..., lmin_idx:], wavenumber=ps.wavenumber[lmin_idx:]
+        )
         spectra_results.append((entry["label"], cl))
     return spectra_results
 

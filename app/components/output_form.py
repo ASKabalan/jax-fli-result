@@ -15,6 +15,11 @@ DEFAULT_NAME_TEMPLATE = (
 )
 
 
+def _reset_name_template(nt_key: str) -> None:
+    """Reset the name-template field (callback runs before rerun)."""
+    st.session_state[nt_key] = DEFAULT_NAME_TEMPLATE
+
+
 def render_output_form(
     prefix: str = "",
     defaults: dict | None = None,
@@ -76,9 +81,12 @@ def render_output_form(
                 )
             with nt_btn:
                 st.markdown("&nbsp;", unsafe_allow_html=True)
-                if st.button("Default", key=f"{prefix}name_reset"):
-                    st.session_state[_nt_key] = DEFAULT_NAME_TEMPLATE
-                    st.rerun()
+                st.button(
+                    "Default",
+                    key=f"{prefix}name_reset",
+                    on_click=_reset_name_template,
+                    args=(_nt_key,),
+                )
             result["name"] = nt.strip() or None
 
         if profile:
@@ -152,35 +160,30 @@ def render_infer_config_form(
     Returns
     -------
     dict with keys:
-        observable_dir, observable, output_dir, chain_index, seed,
+        observable (full path), path (output dir), chain_index, seed,
         adjoint, checkpoints, num_warmup, num_samples, batch_count,
         sampler, backend, sigma_e, init_cosmo.
     """
-    from pathlib import Path
-
     defaults = defaults or {}
 
     with st.container(border=True):
         st.subheader("Inference Config")
 
-        observable_path = st.text_input(
-            "observable path",
-            value=defaults.get("observable_path", "observables/BORN_SMALL.parquet"),
-            key=f"{prefix}obs_path",
-            help="Full path to the observable parquet file",
+        observable = (
+            st.text_input(
+                "observable path",
+                value=defaults.get("observable_path", "observables/BORN_SMALL.parquet"),
+                key=f"{prefix}obs_path",
+                help="Full path to the observable parquet file (fli-infer --observable).",
+            )
+            or "observables/BORN_SMALL.parquet"
         )
-        _obs_p = (
-            Path(observable_path)
-            if observable_path
-            else Path("observables/BORN_SMALL.parquet")
-        )
-        observable_dir = str(_obs_p.parent)
-        observable = _obs_p.name
 
-        output_dir = st.text_input(
+        path = st.text_input(
             "output_dir",
             value=defaults.get("output_dir", "results/inference_runs"),
             key=f"{prefix}output_dir",
+            help="Output directory for MCMC checkpoints and catalogs (fli-infer --path).",
         )
 
         ci_col, seed_col = st.columns(2)
@@ -263,9 +266,8 @@ def render_infer_config_form(
         )
 
     return {
-        "observable_dir": observable_dir,
         "observable": observable,
-        "output_dir": output_dir,
+        "path": path,
         "chain_index": chain_index,
         "seed": seed,
         "adjoint": adjoint,

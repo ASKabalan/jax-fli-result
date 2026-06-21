@@ -4,7 +4,11 @@ results
 !results/**/tree.txt
 !results/**/publish.py
 
+# Python build / uv artifacts (uv.lock IS committed)
 *egg-info/
+dist/
+build/
+.venv/
 .vscode/
 
 # Jupyter artifacts

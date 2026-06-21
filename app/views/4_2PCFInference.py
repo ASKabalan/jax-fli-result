@@ -7,6 +7,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 import streamlit as st
 
 from app.components.command_builder import build_command
+from app.components.lensing_form import render_lensing_form
 from app.components.misc_forms import render_2pcf_observable_form
 from app.components.output_form import render_2pcf_config_form
 from app.components.prior_cosmo_form import render_prior_cosmo_form
@@ -49,6 +50,7 @@ with c2:
 # ─────────────────────────────────────────────────────────────────────────────
 with c3:
     cosmo = render_prior_cosmo_form(prefix="tpcf_", show_ic=False)
+    lensing = render_lensing_form(prefix="tpcf_")
 
 # ── Build command ─────────────────────────────────────────────────────────────
 prior_omega_c = cosmo.get("prior_omega_c") or [0.1, 0.5]
@@ -70,6 +72,11 @@ params.update(
         "f_sky": tpcf_obs["f_sky"],
         "sigma_e": tpcf_obs["sigma_e"],
         "nonlinear_fn": tpcf_obs["nonlinear_fn"],
+        # Lensing source distribution (mirrors add_lensing_args)
+        "nz_shear": lensing["nz_shear"],
+        "min_z": lensing["min_z"],
+        "max_z": lensing["max_z"],
+        "n_integrate": lensing["n_integrate"],
         "num_warmup": tpcf_obs["num_warmup"],
         "num_samples": tpcf_obs["num_samples"],
         "batch_count": tpcf_obs["batch_count"],

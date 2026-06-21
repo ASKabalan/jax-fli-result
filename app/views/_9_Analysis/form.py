@@ -5,6 +5,7 @@ Actual analysis logic is delegated to the analysis-specific modules.
 """
 from __future__ import annotations
 
+import uuid
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -26,6 +27,7 @@ from .utils import (
 # ---------------------------------------------------------------------------
 
 CATALOGS_KEY = "analysis_catalogs"
+HF_REPO_ID = "ASKabalan/jax-fli-experiments"
 
 
 def _init_session_state():
@@ -40,10 +42,34 @@ def _init_session_state():
 # ---------------------------------------------------------------------------
 
 
+def _build_entry(local_path: str, source: str = "local", hf_path: str | None = None):
+    """Build a catalog entry dict from a local parquet file. Returns None on failure."""
+    import jax_fli as jfli
+
+    try:
+        catalog = jfli.io.Catalog.from_parquet(local_path)
+    except Exception as e:
+        st.error(f"Failed to load {Path(local_path).name}: {e}")
+        return None
+
+    field = catalog.field[0]
+    field_name = field.name if field.name else Path(local_path).stem
+    field_type = type(field).__name__
+    return {
+        "id": uuid.uuid4().hex,
+        "path": local_path,
+        "source": source,
+        "hf_path": hf_path,
+        "label": field_name,
+        "catalog": catalog,
+        "field_type": field_type,
+        "is_spectra": field_type in _SPECTRA_TYPES,
+        "active": True,
+    }
+
+
 def _load_catalog(path: str):
     import glob as _glob
-
-    import jax_fli as jfli
 
     path = path.strip()
     if not path:
@@ -74,77 +100,139 @@ def _load_catalog(path: str):
         if entry["path"] == path:
             st.toast(f"Already loaded: {Path(path).name}")
             return
-    try:
-        catalog = jfli.io.Catalog.from_parquet(path)
-        field_name = catalog.field[0].name if catalog.field[0].name else Path(path).stem
-        field_type = type(catalog.field[0]).__name__
-        st.session_state[CATALOGS_KEY].append(
-            {
-                "path": path,
-                "label": field_name,
-                "catalog": catalog,
-                "field_type": field_type,
-                "is_spectra": field_type in _SPECTRA_TYPES,
-                "active": True,
-            }
-        )
-    except Exception as e:
-        st.error(f"Failed to load {path}: {e}")
+
+    entry = _build_entry(path, source="local")
+    if entry is not None:
+        st.session_state[CATALOGS_KEY].append(entry)
 
 
-def _toggle_active(index: int, key: str):
-    st.session_state[CATALOGS_KEY][index]["active"] = st.session_state[key]
+@st.cache_data(show_spinner="Fetching HuggingFace file list…")
+def _discover_hf_files(repo_id: str) -> list[str]:
+    """Return a sorted list of repo-relative parquet paths for a HF dataset repo."""
+    from huggingface_hub import list_repo_files
 
-
-def _update_label(index: int, key: str):
-    st.session_state[CATALOGS_KEY][index]["label"] = st.session_state[key]
-
-
-def _update_name(paths: list[str], new_names: list[str]):
-    import jax_fli as jfli
-    from datasets import load_dataset
-
-    messages = []
-
-    for path, new_name in zip(paths, new_names):
-        try:
-            # 1. Load each file individually so schemas don't clash
-            ds = load_dataset("parquet", data_files=[path], split="train")
-            entry = ds[0]
-
-            print(
-                f"Processing {Path(path).name}: current name = '{entry['name']}', new name = '{new_name}'"
-            )
-            if entry["name"] != new_name:
-                # 2. Modify the entry
-                catalog = jfli.io.Catalog.from_dataset(entry)
-                field = catalog.field[0]
-                field = field.replace(name=new_name)
-
-                # 3. Save it back to the original path
-                jfli.io.Catalog(field=field, cosmology=catalog.cosmology[0]).to_parquet(
-                    path
-                )
-
-                messages.append(f"Renamed to '{new_name}' in {Path(path).name}")
-            else:
-                print(f"skipped {Path(path).name}: name already matches new name.")
-
-        except Exception as e:
-            messages.append(f"Failed processing {Path(path).name}: {e}")
-
-    st.session_state["_rename_info"] = (
-        "\n".join(messages) if messages else "No renames needed."
+    return sorted(
+        f
+        for f in list_repo_files(repo_id, repo_type="dataset")
+        if f.endswith(".parquet")
     )
 
 
-def _remove_entry(index: int):
-    st.session_state[CATALOGS_KEY].pop(index)
+def _build_hf_tree(paths: list[str]) -> dict:
+    """Nest a flat list of repo-relative paths into a directory tree.
+
+    Each node maps a sub-folder name -> child node; a node's own files live under the empty-string
+    key "" (path components are never empty, so this never collides with a real folder name).
+    """
+    root: dict = {}
+    for p in paths:
+        parts = p.split("/")
+        node = root
+        for part in parts[:-1]:
+            node = node.setdefault(part, {})
+        node.setdefault("", []).append(p)
+    return root
+
+
+def _count_parquet(node: dict) -> int:
+    """Total parquet files at and below a tree node."""
+    return len(node.get("", [])) + sum(
+        _count_parquet(c) for k, c in node.items() if k != ""
+    )
+
+
+def _render_hf_node(node: dict, repo_id: str, prefix: str, depth: int) -> None:
+    """Recursively render one directory node: its own files, then each sub-folder as an expander."""
+    files = node.get("", [])
+    if files:
+        sel_key = f"analysis_hf_sel_{prefix}"
+        fc1, fc2 = st.columns([5, 1])
+        with fc1:
+            selected = st.multiselect(
+                "Files",
+                files,
+                format_func=lambda p: Path(p).name,
+                key=sel_key,
+                label_visibility="collapsed",
+            )
+        with fc2:
+            st.button(
+                "Load",
+                key=f"analysis_hf_load_{prefix}",
+                on_click=_load_hf_files,
+                args=(repo_id, sel_key),
+                disabled=not selected,
+            )
+
+    for name in sorted(k for k in node if k != ""):
+        child = node[name]
+        child_prefix = f"{prefix}/{name}" if prefix else name
+        with st.expander(
+            f"{name} · {_count_parquet(child)} files",
+            expanded=False,
+            type="compact" if depth > 0 else "default",
+        ):
+            _render_hf_node(child, repo_id, child_prefix, depth + 1)
+
+
+def _load_hf_files(repo_id: str, sel_key: str):
+    from huggingface_hub import hf_hub_download
+
+    for rel_path in st.session_state.get(sel_key, []):
+        hf_path = f"{repo_id}/{rel_path}"
+        if any(e.get("hf_path") == hf_path for e in st.session_state[CATALOGS_KEY]):
+            st.toast(f"Already loaded: {Path(rel_path).name}")
+            continue
+        try:
+            local_path = hf_hub_download(repo_id, rel_path, repo_type="dataset")
+        except Exception as e:
+            st.error(f"Failed to download {rel_path}: {e}")
+            continue
+        entry = _build_entry(local_path, source="hf", hf_path=hf_path)
+        if entry is not None:
+            st.session_state[CATALOGS_KEY].append(entry)
+
+
+def _toggle_active(entry_id: str, key: str):
+    for e in st.session_state[CATALOGS_KEY]:
+        if e["id"] == entry_id:
+            e["active"] = st.session_state[key]
+            break
+
+
+def _update_label(entry_id: str, key: str):
+    for e in st.session_state[CATALOGS_KEY]:
+        if e["id"] == entry_id:
+            e["label"] = st.session_state[key]
+            break
+
+
+def _remove_entry(entry_id: str):
+    st.session_state[CATALOGS_KEY] = [
+        e for e in st.session_state[CATALOGS_KEY] if e["id"] != entry_id
+    ]
 
 
 # ---------------------------------------------------------------------------
 # Section 1: File Loading
 # ---------------------------------------------------------------------------
+
+
+def _render_hf_browser() -> None:
+    with st.expander("\U0001f917 Load from HuggingFace Hub", expanded=False):
+        repo_id = st.text_input(
+            "Dataset repo", value=HF_REPO_ID, key="analysis_hf_repo"
+        )
+        try:
+            paths = _discover_hf_files(repo_id)
+        except Exception as e:
+            st.error(f"Could not list files for '{repo_id}': {e}")
+            return
+        if not paths:
+            st.info("No parquet files found in this repo.")
+            return
+
+        _render_hf_node(_build_hf_tree(paths), repo_id, prefix="", depth=0)
 
 
 def _render_file_loading(entries: list[dict]) -> None:
@@ -166,30 +254,39 @@ def _render_file_loading(entries: list[dict]) -> None:
                 args=(new_path,),
             )
 
+        _render_hf_browser()
+
         for i, entry in enumerate(entries):
+            eid = entry["id"]
+            is_hf = entry.get("source") == "hf"
             cb, cl, cp, ct, cr = st.columns([0.5, 2, 3, 1.5, 0.5])
             with cb:
                 st.checkbox(
                     f"**#{i+1}**",
                     value=entry.get("active", True),
-                    key=f"analysis_active_{i}",
+                    key=f"analysis_active_{eid}",
                     on_change=_toggle_active,
-                    args=(i, f"analysis_active_{i}"),
+                    args=(eid, f"analysis_active_{eid}"),
                 )
             with cl:
                 st.text_input(
                     "Label",
                     value=entry["label"],
-                    key=f"analysis_label_{i}",
+                    key=f"analysis_label_{eid}",
                     on_change=_update_label,
-                    args=(i, f"analysis_label_{i}"),
+                    args=(eid, f"analysis_label_{eid}"),
                     label_visibility="collapsed",
                 )
             with cp:
+                path_display = (
+                    f"\U0001f917 {entry.get('hf_path', entry['path'])}"
+                    if is_hf
+                    else entry["path"]
+                )
                 st.text_input(
                     "Path",
-                    value=entry["path"],
-                    key=f"analysis_path_{i}",
+                    value=path_display,
+                    key=f"analysis_path_{eid}",
                     disabled=True,
                     label_visibility="collapsed",
                 )
@@ -197,24 +294,14 @@ def _render_file_loading(entries: list[dict]) -> None:
                 st.caption(entry["field_type"])
             with cr:
                 st.button(
-                    "\u2716", key=f"analysis_rm_{i}", on_click=_remove_entry, args=(i,)
+                    "\u2716",
+                    key=f"analysis_rm_{eid}",
+                    on_click=_remove_entry,
+                    args=(eid,),
                 )
-
-        if entries:
-            all_paths = [e["path"] for e in entries]
-            all_labels = [e["label"] for e in entries]
-            st.button(
-                "Save Names",
-                key="analysis_rename_all",
-                on_click=_update_name,
-                args=(all_paths, all_labels),
-            )
 
         if not entries:
             st.info("No files loaded. Enter a parquet file path and click Load.")
-
-        if msg := st.session_state.pop("_rename_info", None):
-            st.info(msg)
 
 
 # ---------------------------------------------------------------------------
@@ -353,7 +440,7 @@ def _render_field_map_section(entries: list[dict]) -> None:
                 )
                 apply_fn = st.text_input(
                     "Apply function",
-                    value="",
+                    value="np.log(x + 5e-2)",
                     key="analysis_map_apply_fn",
                     help="Optional numpy expression, e.g. 'np.log10(x + 1e-5)'. Use 'x' as variable.",
                 )
