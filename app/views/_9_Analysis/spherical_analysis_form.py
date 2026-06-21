@@ -304,6 +304,14 @@ def cl_tab(
 
             # --- Plot layout ---
             st.markdown("**Plot layout**")
+            spec_ncols = st.number_input(
+                "Columns",
+                min_value=1,
+                max_value=10,
+                value=2,
+                key="analysis_spec_ncols",
+                disabled=(_ns_catalog == 1),
+            )
             spec_fig_w = st.number_input(
                 "Width/col",
                 min_value=2.0,
@@ -437,9 +445,6 @@ def cl_tab(
                         "Spectra have different ell lengths after slicing — cannot compare."
                     )
                     st.stop()
-                comoving_centers = np.array(
-                    [s[1].comoving_centers for s in spectra_results]
-                )
                 scale_factors = np.array([s[1].scale_factors for s in spectra_results])
                 z_sources = np.array([s[1].z_sources for s in spectra_results])
                 density_width = np.array([s[1].density_width for s in spectra_results])
@@ -447,16 +452,23 @@ def cl_tab(
                 rtol = float(os.getenv("JAX_FLI_COMPARE_RTOL", "1e-1"))
                 atol = float(os.getenv("JAX_FLI_COMPARE_ATOL", "1e-1"))
 
-                if not np.all(
-                    np.isclose(
-                        comoving_centers, comoving_centers[0], rtol=rtol, atol=atol
+                # comoving_centers is meaningful only for density shells; kappa
+                # (weak-lensing) spectra are line-of-sight projections with no shell
+                # comoving center, so skip this comparison for kappa fields.
+                if not is_kappa:
+                    comoving_centers = np.array(
+                        [s[1].comoving_centers for s in spectra_results]
                     )
-                ):
-                    st.warning(
-                        "Spectra have different comoving centers — cannot compare."
-                    )
-                    for i, cc in enumerate(comoving_centers):
-                        print(f"  {spectra_results[i][0]}: {cc}")
+                    if not np.all(
+                        np.isclose(
+                            comoving_centers, comoving_centers[0], rtol=rtol, atol=atol
+                        )
+                    ):
+                        st.warning(
+                            "Spectra have different comoving centers — cannot compare."
+                        )
+                        for i, cc in enumerate(comoving_centers):
+                            print(f"  {spectra_results[i][0]}: {cc}")
                 if not np.all(
                     np.isclose(scale_factors, scale_factors[0], rtol=rtol, atol=atol)
                 ):
@@ -508,6 +520,7 @@ def cl_tab(
                 "spec_fig_w": spec_fig_w,
                 "spec_main_h": spec_main_h,
                 "spec_ratio_h": spec_ratio_h,
+                "spec_ncols": spec_ncols,
             }
             eff_compare_ref = compare_ref and len(spectra_results) > 1
             eff_compare_theory = compare_theory and theory_result is not None
