@@ -124,6 +124,7 @@ def render_simulation_settings(
         paint_nside = None
         kernel_width_arcmin = None
         kernel_width_pixels = None
+        pixel_window_deconvolution = False
 
         _out_options = ["Spherical (nside)", "Flat sky", "Density", "Particles"]
         _default_out = defaults.get("output_target", "Spherical (nside)")
@@ -184,6 +185,15 @@ def render_simulation_settings(
                             format="%.2f",
                             key=f"{prefix}kernel_width_arcmin",
                         )
+
+            pixel_window_deconvolution = st.checkbox(
+                "pixel_window_deconvolution",
+                value=bool(defaults.get("pixel_window_deconvolution", False)),
+                disabled=(scheme == "bilinear"),
+                key=f"{prefix}pixel_window_deconvolution",
+                help="Deconvolve the HEALPix painting window after painting (a_lm level), "
+                "distinct from the 3D force deconvolution. Requires scheme ngp or rbf_neighbor.",
+            )
 
         elif output_target == "Flat sky":
             st.write("**Pixels (H × W)**")
@@ -255,6 +265,7 @@ def render_simulation_settings(
         "paint_nside": paint_nside,
         "kernel_width_arcmin": kernel_width_arcmin,
         "kernel_width_pixels": kernel_width_pixels,
+        "pixel_window_deconvolution": pixel_window_deconvolution,
         "apodization_scale_deg": apodization_scale_deg,
     }
     result.update(

@@ -339,7 +339,7 @@ def cl_tab(
             title_template = st.text_input(
                 "Panel title template",
                 value="χ %r% Mpc/h",
-                key="analysis_title_template",
+                key="analysis_cl_title_template",
                 help="%r% = comoving distance  |  %z% = redshift  |  %a% = scale factor",
             )
 
@@ -406,13 +406,14 @@ def cl_tab(
                     st.stop()
                 _lmin_idx = int(np.searchsorted(_ells_full, int(lmin)))
                 _lmax_idx = int(np.searchsorted(_ells_full, int(lmax), side="right"))
-                spectra_results = [
-                    (
-                        e["label"],
-                        e["catalog"].field[0][selected_shells, _lmin_idx:_lmax_idx],
+                spectra_results = []
+                for e in active_entries:
+                    ps = e["catalog"].field[0][selected_shells]
+                    ps = ps.replace(
+                        array=ps.array[..., _lmin_idx:_lmax_idx],
+                        wavenumber=ps.wavenumber[_lmin_idx:_lmax_idx],
                     )
-                    for e in active_entries
-                ]
+                    spectra_results.append((e["label"], ps))
             else:
                 with st.spinner("Computing angular power spectra..."):
                     spectra_results = _compute.compute_cls(

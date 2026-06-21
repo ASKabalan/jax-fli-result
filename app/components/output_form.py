@@ -15,6 +15,11 @@ DEFAULT_NAME_TEMPLATE = (
 )
 
 
+def _reset_name_template(nt_key: str) -> None:
+    """Reset the name-template field (callback runs before rerun)."""
+    st.session_state[nt_key] = DEFAULT_NAME_TEMPLATE
+
+
 def render_output_form(
     prefix: str = "",
     defaults: dict | None = None,
@@ -76,9 +81,12 @@ def render_output_form(
                 )
             with nt_btn:
                 st.markdown("&nbsp;", unsafe_allow_html=True)
-                if st.button("Default", key=f"{prefix}name_reset"):
-                    st.session_state[_nt_key] = DEFAULT_NAME_TEMPLATE
-                    st.rerun()
+                st.button(
+                    "Default",
+                    key=f"{prefix}name_reset",
+                    on_click=_reset_name_template,
+                    args=(_nt_key,),
+                )
             result["name"] = nt.strip() or None
 
         if profile:

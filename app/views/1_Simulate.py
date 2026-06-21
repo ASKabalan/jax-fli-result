@@ -126,6 +126,7 @@ params = {
     "paint_nside": sim["paint_nside"],
     "kernel_width_arcmin": sim["kernel_width_arcmin"],
     "kernel_width_pixels": sim["kernel_width_pixels"],
+    "pixel_window_deconvolution": sim["pixel_window_deconvolution"],
     "apodization_scale_deg": sim["apodization_scale_deg"],
     "enable_x64": sim["enable_x64"],
     "nside": sim.get("nside"),

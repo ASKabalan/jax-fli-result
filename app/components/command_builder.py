@@ -107,6 +107,7 @@ _OUTPUT_TARGET_SPEC = [
     ("paint-nside", "optional_int", None),
     ("kernel-width-arcmin", "optional_float", None),
     ("kernel-width-pixels", "optional_float", None),
+    ("pixel-window-deconvolution", bool, False),
 ]
 
 # add_cosmo_args

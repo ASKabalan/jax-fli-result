@@ -137,6 +137,7 @@ params.update(
         "paint_nside": sim["paint_nside"],
         "kernel_width_arcmin": sim.get("kernel_width_arcmin"),
         "kernel_width_pixels": sim.get("kernel_width_pixels"),
+        "pixel_window_deconvolution": sim.get("pixel_window_deconvolution", False),
         "enable_x64": sim["enable_x64"],
         "nside": sim.get("nside"),
         "flatsky_npix": sim.get("flatsky_npix"),
