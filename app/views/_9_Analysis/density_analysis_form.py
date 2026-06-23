@@ -1,6 +1,8 @@
 """DensityField and ParticleField Streamlit UI: 3D P(k) tab."""
 from __future__ import annotations
 
+import os
+
 import numpy as np
 import streamlit as st
 
@@ -9,20 +11,19 @@ from .density_analysis_compute import (
     compute_pk,
     compute_theory_pk,
 )
-from .utils import _DENSITY_3D, _fig_to_png, _plt_lock, parse_slice
+from .utils import (
+    _apply_shared_log_ylim,
+    _fig_to_png,
+    _plt_lock,
+)
 
 
-def pk_tab(
-    active_entries: list[dict],
-    precomputed: bool = False,
-) -> None:
+def pk_tab(active_entries: list[dict]) -> None:
     """Render the full 3D P(k) tab.
 
-    When ``precomputed=True`` the P(k) arrays are already stored in the catalog
-    and are read directly — no heavy computation is triggered.
-
-    The caller (form.py) is responsible for routing field-type errors before
-    calling this function.
+    Entries may be mixed: a precomputed ``PowerSpectrum`` (3D P(k)) is used as-is and a
+    raw ``DensityField`` is transformed via ``.power()`` (handled in ``compute_pk``).
+    The caller (form.py) routes only P(k)-category entries here.
     """
     spec_params_pk, spec_plot_pk = st.columns([1, 3])
 
@@ -55,22 +56,6 @@ def pk_tab(
                 key="analysis_ratio_only_pk",
                 disabled=not compare_theory_pk,
                 help="Show only the ratio panel without the main P(k) panel.",
-            )
-
-            st.markdown("**Snapshot selection**")
-            cached_pk = st.session_state.get("analysis_pk_results")
-            if cached_pk:
-                _ref_pk_arr = np.asarray(cached_pk[0][0][1].array)
-                _ns_pk = _ref_pk_arr.shape[0] if _ref_pk_arr.ndim > 1 else 1
-            else:
-                _ns_pk = None
-            _single_snap = _ns_pk == 1
-            snap_index = st.text_input(
-                "Snapshot index (numpy-style)",
-                value=":",
-                key="analysis_snap_index",
-                disabled=_single_snap,  # TODO sometimes disable with a false positive
-                help="Examples: ':' (all), '0:3', '-1:'. Selects which snapshots to plot.",
             )
 
             pk_fig_w = st.number_input(
@@ -138,7 +123,7 @@ def pk_tab(
             pk_cb1, pk_cb2 = st.columns(2)
             with pk_cb1:
                 pk_compute_btn = st.button(
-                    "Plot" if precomputed else "Compute",
+                    "Compute",
                     key="analysis_pk_compute_btn",
                     type="primary",
                 )
@@ -151,36 +136,32 @@ def pk_tab(
                 )
 
     with spec_plot_pk:
-        selected_snaps = parse_slice(snap_index)
         if pk_compute_btn:
             try:
-                if precomputed:
-                    pk_results = [
-                        (e["label"], e["catalog"].field[0][selected_snaps])
-                        for e in active_entries
-                    ]
-                    ref_fld_pk = active_entries[0]["catalog"].field[0][selected_snaps]
-                    ref_cosmo_pk = active_entries[0]["catalog"].cosmology[0]
-                else:
-                    all_types_pk = {e["field_type"] for e in active_entries}
-                    if all_types_pk != _DENSITY_3D:
-                        st.error(
-                            "3D P(k) only supported when all active fields are DensityField. "
-                            f"Found: {', '.join(sorted(all_types_pk))}"
-                        )
-                        pk_results = ref_fld_pk = ref_cosmo_pk = None
-                    else:
-                        with st.spinner("Computing 3D power spectra..."):
-                            pk_results, ref_fld_pk, ref_cosmo_pk = compute_pk(
-                                active_entries, selected_snaps
-                            )
+                with st.spinner("Computing 3D power spectra..."):
+                    pk_results, ref_fld_pk, ref_cosmo_pk = compute_pk(active_entries)
 
                 if pk_results:
-                    if len(set(s[1].spectra.shape[0] for s in pk_results)) > 1:  # type: ignore
+                    # HARD: same number of snapshots and same k-grid length.
+                    if len({s[1].spectra.shape[0] for s in pk_results}) > 1:  # type: ignore
                         st.error(
-                            "Power spectra have different number of shells after slicing — cannot compare."
+                            "Power spectra have different number of snapshots — cannot compare."
                         )
                         st.stop()
+                    if len({s[1].wavenumber.size for s in pk_results}) > 1:
+                        st.error(
+                            "Power spectra have different k-grid lengths — cannot compare. "
+                            "This happens when mixing spectra computed on different k binnings."
+                        )
+                        st.stop()
+                    # SOFT: warn on differing scale factors (guarded against None).
+                    _sf = [getattr(s[1], "scale_factors", None) for s in pk_results]
+                    if all(v is not None for v in _sf):
+                        _rtol = float(os.getenv("JAX_FLI_COMPARE_RTOL", "1e-1"))
+                        _atol = float(os.getenv("JAX_FLI_COMPARE_ATOL", "1e-1"))
+                        _arr = np.array([np.asarray(v) for v in _sf])
+                        if not np.all(np.isclose(_arr, _arr[0], rtol=_rtol, atol=_atol)):
+                            st.warning("Power spectra have different scale factors.")
                     theory_pks = None
                     if compare_theory_pk:
                         with st.spinner("Computing theory P(k)..."):
@@ -220,6 +201,7 @@ def pk_tab(
                         layout_params,
                         pk_bands,
                     )
+                    _apply_shared_log_ylim(fig_pk)
                     st.session_state["analysis_pk_png"] = _fig_to_png(
                         fig_pk, dpi=int(pk_dpi)
                     )
@@ -236,8 +218,4 @@ def pk_tab(
                     pk_fig, key_prefix="pk", filename="power_spectrum_3d"
                 )
         else:
-            st.info(
-                "Click **Plot** to display the 3D matter power spectrum."
-                if precomputed
-                else "Click **Compute** to generate the 3D matter power spectrum."
-            )
+            st.info("Click **Compute** to generate the 3D matter power spectrum.")

@@ -8,7 +8,9 @@ import streamlit as st
 
 from app.components.command_builder import build_command
 from app.components.lensing_form import render_lensing_form
+from app.components.lensing_postproc_form import render_lensing_postproc_form
 from app.components.slurm_form import render_slurm_form
+from app.components.source_form import render_source_form
 from app.components.styled_container import inject_custom_css
 
 inject_custom_css()
@@ -19,26 +21,27 @@ slurm = render_slurm_form(
     prefix="born_",
 )
 lensing = render_lensing_form(prefix="born_")
+source = render_source_form(prefix="born_")
+postproc = render_lensing_postproc_form(
+    prefix="born_", output_default="results/lensing/multi_shell"
+)
 
 with st.container(border=True):
     st.subheader("Born RT-specific")
-    input_path = st.text_input(
-        "input", value="results/cosmology_runs", key="born_input"
-    )
-    output_path = st.text_input(
-        "output", value="results/lensing/multi_shell", key="born_output"
+    name = (
+        st.text_input(
+            "name",
+            value="",
+            key="born_name",
+            help="Label stored as AbstractField.name inside the output catalog.",
+        ).strip()
+        or None
     )
     enable_x64 = st.checkbox("enable_x64", key="born_enable_x64")
 
 # Build command — keys mirror _SUBCOMMAND_SPECS["born-rt"] in command_builder.py
-params = {**slurm, **lensing}
-params.update(
-    {
-        "input": input_path,
-        "output": output_path,
-        "enable_x64": enable_x64,
-    }
-)
+params = {**slurm, **lensing, **source, **postproc}
+params.update({"name": name, "enable_x64": enable_x64})
 cmd = build_command("born-rt", params)
 st.divider()
 st.subheader("Generated command")

@@ -15,6 +15,10 @@ dependencies = [
     "matplotlib>=3.0",
 ]
 
+
+[project.optional-dependencies]
+starlet = ["pycs"]
+
 [dependency-groups]
 dev = ["prek", "pyright", "ruff", "toml-sort"]
 
@@ -28,7 +32,8 @@ default-groups = []
 # must not) redeclare them here, which would raise a "conflicting URLs" error. uv strips
 # sources at build time, so the published wheel depends only on the plain PyPI names.
 [tool.uv.sources]
-jax-fli = { git = "https://github.com/ASKabalan/jax-fli" }
+jax-fli = { branch="experiment-2", git = "https://github.com/ASKabalan/jax-fli" }
+pycs = {branch = "master", git = "https://github.com/CosmoStat/cosmostat"}
 
 [tool.hatch.version]
 source = "vcs"

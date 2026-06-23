@@ -13,6 +13,7 @@ from app.components.output_form import render_infer_config_form
 from app.components.prior_cosmo_form import render_prior_cosmo_form
 from app.components.simulation_settings_form import render_simulation_settings
 from app.components.slurm_form import render_slurm_form
+from app.components.source_form import render_source_form
 from app.components.stepping_plot import render_stepping_plot
 from app.components.styled_container import inject_custom_css
 
@@ -25,7 +26,7 @@ top_left, top_right = st.columns([1, 1])
 with top_left:
     st.markdown(
         "Run MCMC inference on a weak-lensing observable.\n\n"
-        "Samples cosmological parameters and/or initial conditions using the chosen sampler backend."
+        "Samples cosmological parameters and/or initial conditions using the chosen sampler."
     )
 
 # ── MIDDLE: command preview placeholder ──────────────────────────────────────
@@ -74,9 +75,15 @@ with c1:
 # c3 — Inference Config + Cosmology & IC
 # ─────────────────────────────────────────────────────────────────────────────
 with c3:
+    obs_source = render_source_form(prefix="inf_obs_", title="Observable source")
+    ic_source = render_source_form(
+        prefix="inf_ic_", title="Initial condition (optional)"
+    )
     infer_cfg = render_infer_config_form(prefix="inf_")
     forward_model = render_forward_model_form(prefix="inf_")
-    cosmo = render_prior_cosmo_form(prefix="inf_", show_ic=True)
+    # The IC parquet path is supplied by the dedicated --ic-* source above, so suppress the legacy
+    # IC-path field in the prior form (show_ic_path=False).
+    cosmo = render_prior_cosmo_form(prefix="inf_", show_ic=True, show_ic_path=False)
 
 # ── Stepping plot ─────────────────────────────────────────────────────────────
 with top_right:
@@ -118,27 +125,32 @@ params.update(
         "ts_far": integration["ts_far"],
         "drift_on_lightcone": integration["drift_on_lightcone"],
         "min_width": integration["min_width"],
-        # Lensing (incl. lensing_output)
+        # Lensing source distribution (--lensing-output / --apodization-scale-deg come from the
+        # forward-model form below, not from the lensing / simulation-settings forms).
         **{
             k: v
             for k, v in integration.items()
-            if k in ("nz_shear", "min_z", "max_z", "n_integrate", "lensing_output")
+            if k in ("nz_shear", "min_z", "max_z", "n_integrate")
         },
         # Simulation settings + painting (nside/flatsky come from the observable)
         "mesh_size": sim["mesh_size"],
         "box_size": sim["box_size"],
         "halo_multiplier": sim["halo_multiplier"],
         "observer_position": sim["observer_position"],
-        "apodization_scale_deg": sim.get("apodization_scale_deg"),
         "scheme": sim["scheme"],
         "paint_nside": sim["paint_nside"],
         "kernel_width_arcmin": sim.get("kernel_width_arcmin"),
         "kernel_width_pixels": sim.get("kernel_width_pixels"),
         "pixel_window_deconvolution": sim.get("pixel_window_deconvolution", False),
         "enable_x64": sim["enable_x64"],
-        # Inference config (observable, path, sampler knobs)
+        # Observable source (--input / --repo / --data-files)
+        **obs_source,
+        # Optional initial-condition source (--ic-input / --ic-repo / --ic-data-files)
+        **{f"ic_{k}": v for k, v in ic_source.items()},
+        # Inference config (path, sampler knobs, no_progress_bar)
         **infer_cfg,
-        # Forward-model likelihood (mask / sigma_unobserved / log_lightcone)
+        # Forward-model likelihood (lensing_output / mask / sigma_unobserved / log_lightcone /
+        # apodization_scale_deg / map2alm_method)
         **forward_model,
         # Cosmo / IC priors
         "sample": cosmo.get("sample", ["cosmo", "ic"]),
@@ -146,7 +158,6 @@ params.update(
         "prior_sigma8": cosmo.get("prior_sigma8"),
         "prior_h": cosmo.get("prior_h"),
         "prior_ic_gaussian": cosmo.get("prior_ic_gaussian"),
-        "initial_condition": cosmo.get("initial_condition"),
     }
 )
 cmd = build_command("infer", params)

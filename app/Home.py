@@ -18,11 +18,9 @@ scripts_pages = [
     st.Page(
         "views/3_FullFieldInference.py", title="Full Field Inference", icon="\U0001f52c"
     ),
-    st.Page("views/4_2PCFInference.py", title="2PCF Inference", icon="\U0001f4ca"),
     st.Page("views/5_Extract.py", title="Extract", icon="\U0001f4e6"),
     st.Page("views/6_Born_RT.py", title="Born RT", icon="\U0001f52d"),
     st.Page("views/7_Dorian_RT.py", title="Dorian RT", icon="\U0001f30d"),
-    st.Page("views/8_SummaryStats.py", title="Summary Statistics", icon="\U0001f4c9"),
 ]
 
 analysis_pages = [

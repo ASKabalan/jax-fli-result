@@ -110,11 +110,12 @@ params = {
     "drift_on_lightcone": integration["drift_on_lightcone"],
     "min_width": integration["min_width"],
     "nb_shells": integration["nb_shells_for_cmd"],
-    # Lensing (only populated when sim_mode == "lensing")
+    # Lensing source distribution (only populated when sim_mode == "lensing"). fli-simulate emits
+    # convergence only — there is no --lensing-output here (that is a forward-model concern).
     **{
         k: v
         for k, v in integration.items()
-        if k in ("nz_shear", "min_z", "max_z", "n_integrate", "lensing_output")
+        if k in ("nz_shear", "min_z", "max_z", "n_integrate")
     },
     # Simulation settings
     "mesh_size": sim["mesh_size"],
@@ -127,7 +128,6 @@ params = {
     "kernel_width_arcmin": sim["kernel_width_arcmin"],
     "kernel_width_pixels": sim["kernel_width_pixels"],
     "pixel_window_deconvolution": sim["pixel_window_deconvolution"],
-    "apodization_scale_deg": sim["apodization_scale_deg"],
     "enable_x64": sim["enable_x64"],
     "nside": sim.get("nside"),
     "flatsky_npix": sim.get("flatsky_npix"),
@@ -140,6 +140,7 @@ params = {
     "name": output.get("name"),
     "perf": output.get("perf"),
     "iterations": output.get("iterations"),
+    "shells_per_file": output.get("shells_per_file"),
 }
 
 cmd = build_command("simulate", params)

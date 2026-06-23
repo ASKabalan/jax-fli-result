@@ -24,6 +24,7 @@ from .utils import (
     _PALETTE,
     _clean_ratio_ax,
     _make_title,
+    indexed_field,
     pixel_window_function,
 )
 
@@ -168,12 +169,13 @@ def _build_cl_main_only(
     """Rectangular Cl panels only — no ratio rows."""
     ns = _n_shells(spectra_results)
     height_ratios = [float(layout_params["spec_main_h"])]
-    fig, outer_gs, coords, _, legend_cell = _setup_spectra_grid(
+    fig, outer_gs, coords, coords_set, legend_cell = _setup_spectra_grid(
         ns, layout_params, height_ratios
     )
 
     handles_out, labels_out = [], []
     for i, (row, col) in enumerate(coords):
+        is_bottom = (row + 1, col) not in coords_set
         inner_gs = _make_inner_gs(outer_gs, row, col, height_ratios)
         ax = fig.add_subplot(inner_gs[0, 0])
 
@@ -188,8 +190,13 @@ def _build_cl_main_only(
         if col == 0:
             ax.set_ylabel(r"$C_\ell$")
         else:
+            ax.set_ylabel("")
             ax.tick_params(labelleft=False)
-        ax.set_xlabel(r"$\ell$")
+        if is_bottom:
+            ax.set_xlabel(r"$\ell$")
+        else:
+            ax.set_xlabel("")
+            ax.tick_params(labelbottom=False)
 
         if i == 0:
             handles_out, labels_out = ax.get_legend_handles_labels()
@@ -237,6 +244,7 @@ def _build_cl_with_ref_ratio(
         if col == 0:
             ax_main.set_ylabel(r"$C_\ell$")
         else:
+            ax_main.set_ylabel("")
             ax_main.tick_params(labelleft=False)
         ax_main.tick_params(labelbottom=False)
         ax_main.set_xlabel("")
@@ -313,6 +321,7 @@ def _build_cl_with_theory_ratio(
         if col == 0:
             ax_main.set_ylabel(r"$C_\ell$")
         else:
+            ax_main.set_ylabel("")
             ax_main.tick_params(labelleft=False)
         ax_main.tick_params(labelbottom=False)
         ax_main.set_xlabel("")
@@ -386,6 +395,7 @@ def _build_cl_with_both_ratios(
         if col == 0:
             ax_main.set_ylabel(r"$C_\ell$")
         else:
+            ax_main.set_ylabel("")
             ax_main.tick_params(labelleft=False)
         ax_main.tick_params(labelbottom=False)
         ax_main.set_xlabel("")
@@ -692,31 +702,43 @@ def compute_cls(
     active_entries: list[dict],
     lmin: int,
     lmax: int,
-    selected_shells: slice,
 ) -> list[tuple[str, Any]]:
-    """Compute angular Cl for any spherical or flat field type.
+    """Return one Angular Cl ``PowerSpectrum`` per entry, all sliced to ``[lmin, lmax]``.
 
-    Density fields (SphericalDensity / FlatDensity) are contrast-normalised
-    before computing.  Flat fields use ``angular_cl(ell_edges=…)``; spherical
-    fields (including SphericalKappaField) use
-    ``angular_cl(lmax=…, method='healpy')``.
+    Entries are dispatched per type so a selection may mix precomputed spectra with
+    raw maps:
+      - ``PowerSpectrum`` (already an Angular Cl) — used as-is.
+      - ``SphericalDensity`` — contrast-normalised (``to(OVERDENSITY, per_plane)``) then
+        ``angular_cl(lmax=…, method='healpy')``.
+      - ``SphericalKappaField`` — ``angular_cl(...)`` directly (no normalisation).
+
+    Off-centre observers yield a mask, so ``angular_cl`` returns decoupled bandpowers;
+    such a Cl is only comparable with stored Cls on the same ell grid (the caller's
+    ell-length check guards this).
     """
     from jax_fli.units import OVERDENSITY
 
     spectra_results = []
     for entry in active_entries:
-        fld = entry["catalog"].field[0][selected_shells]
+        fld = indexed_field(entry)
         ft = entry["field_type"]
-        if ft in ("SphericalDensity"):
+        if ft == "PowerSpectrum":
+            ps = fld  # already an Angular Cl spectrum
+        elif ft == "SphericalDensity":
             fld = fld.to(OVERDENSITY, normalization="per_plane")
-        elif ft not in ("SphericalKappaField"):
+            ps = fld.angular_cl(
+                lmax=int(lmax), method="healpy", mask=_observer_visibility_mask(fld)
+            )
+        elif ft == "SphericalKappaField":
+            ps = fld.angular_cl(
+                lmax=int(lmax), method="healpy", mask=_observer_visibility_mask(fld)
+            )
+        else:
             raise ValueError(f"Unsupported field type for Cl computation: {ft}")
-        mask = _observer_visibility_mask(fld)
-        ps = fld.angular_cl(lmax=int(lmax), method="healpy", mask=mask)
-        lmin_idx = int(np.searchsorted(np.asarray(ps.wavenumber), int(lmin)))
-        cl = ps.replace(
-            array=ps.array[..., lmin_idx:], wavenumber=ps.wavenumber[lmin_idx:]
-        )
+        ells = np.asarray(ps.wavenumber)
+        lo = int(np.searchsorted(ells, int(lmin)))
+        hi = int(np.searchsorted(ells, int(lmax), side="right"))
+        cl = ps.replace(array=ps.array[..., lo:hi], wavenumber=ps.wavenumber[lo:hi])
         spectra_results.append((entry["label"], cl))
     return spectra_results
 
@@ -761,6 +783,9 @@ def compute_theory_cl(
     """
     import jax_cosmo as jc
     import jax_fli as jfli
+    import jax
+    ENABLE_X64 = jax.config.x64_enabled
+    jax.config.update("jax_enable_x64", True)
 
     ref_field_obj = ref_obj.field[0]
     if selected_shells is not None:
@@ -806,4 +831,5 @@ def compute_theory_cl(
     if apply_pixwin and theory_result is not None:
         theory_result = _apply_pixwin(theory_result, ref_field_obj, lmin, lmax)
 
+    jax.config.update("jax_enable_x64", ENABLE_X64)
     return theory_result

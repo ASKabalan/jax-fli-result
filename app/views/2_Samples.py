@@ -121,18 +121,18 @@ params.update(
         "ts_far": integration["ts_far"],
         "drift_on_lightcone": integration["drift_on_lightcone"],
         "min_width": integration["min_width"],
-        # Lensing (incl. lensing_output)
+        # Lensing source distribution (--lensing-output / --apodization-scale-deg come from the
+        # forward-model form below, not from the lensing / simulation-settings forms).
         **{
             k: v
             for k, v in integration.items()
-            if k in ("nz_shear", "min_z", "max_z", "n_integrate", "lensing_output")
+            if k in ("nz_shear", "min_z", "max_z", "n_integrate")
         },
         # Simulation settings + output target
         "mesh_size": sim["mesh_size"],
         "box_size": sim["box_size"],
         "halo_multiplier": sim["halo_multiplier"],
         "observer_position": sim["observer_position"],
-        "apodization_scale_deg": sim.get("apodization_scale_deg"),
         "scheme": sim["scheme"],
         "paint_nside": sim["paint_nside"],
         "kernel_width_arcmin": sim.get("kernel_width_arcmin"),
@@ -143,7 +143,8 @@ params.update(
         "flatsky_npix": sim.get("flatsky_npix"),
         "field_size": sim.get("field_size"),
         "density": sim.get("density", False),
-        # Forward-model likelihood (mask / sigma_unobserved / log_lightcone)
+        # Forward-model likelihood (lensing_output / mask / sigma_unobserved / log_lightcone /
+        # apodization_scale_deg / map2alm_method)
         **forward_model,
         # Samples-specific
         "path": output["output_dir"],

@@ -77,22 +77,53 @@ _INTEGRATION_SPEC = [
     ("min-width", float, 50.0),
 ]
 
-# add_lensing_args
+# add_lensing_args (NOTE: --lensing-output is NOT here — it lives in add_forward_model_args,
+# which only fli-infer / fli-samples compose. fli-simulate / fli-born-rt / fli-dorian-rt emit
+# convergence only and reject --lensing-output.)
 _LENSING_SPEC = [
     ("nz-shear", list, ["s3"]),
     ("min-z", float, 0.01),
     ("max-z", float, 1.5),
     ("n-integrate", int, 32),
-    ("lensing-output", str, "convergence"),
 ]
 
-# add_simulation_settings_args (box geometry + RNG)
+# add_source_args (generic catalog source). EITHER a local glob (--input) OR a HuggingFace repo
+# (--repo + --data-files); the form returns None for the unused side so only the chosen flags emit.
+_SOURCE_SPEC = [
+    ("input", "optional_str", None),
+    ("repo", "optional_str", None),
+    ("data-files", "optional_str", None),
+]
+
+# add_source_args(prefix="ic") — fli-infer's OPTIONAL initial-condition source (single, prefixed).
+_IC_SOURCE_SPEC = [
+    ("ic-input", "optional_str", None),
+    ("ic-repo", "optional_str", None),
+    ("ic-data-files", "optional_str", None),
+]
+
+# add_source_args(multi=True) — fli-extract: each pattern is one chain (input / data-files are lists).
+_SOURCE_MULTI_SPEC = [
+    ("input", "optional_list", None),
+    ("repo", "optional_str", None),
+    ("data-files", "optional_list", None),
+]
+
+# add_lensing_postproc_args (output + density→κ knobs for fli-born-rt / fli-dorian-rt). The --output
+# default is supplied by the view.
+_LENSING_POSTPROC_SPEC = [
+    ("nside", "optional_int", None),
+    ("normalization", str, "global"),
+    ("output", str, "."),
+]
+
+# add_simulation_settings_args (box geometry + RNG). NOTE: --apodization-scale-deg is NOT here —
+# it lives in add_forward_model_args (fli-infer / fli-samples); fli-simulate rejects it.
 _SIM_SETTINGS_SPEC = [
     ("mesh-size", list, [64, 64, 64]),
     ("box-size", list, [200.0, 200.0, 200.0]),
     ("halo-multiplier", float, 0.5),
     ("observer-position", list, [0.5, 0.5, 0.5]),
-    ("apodization-scale-deg", float, 1.0),
     ("seed", int, 0),
 ]
 
@@ -132,9 +163,9 @@ _PRIOR_SPEC = [
     ("prior-ic-gaussian", list, [0.0, 1.0]),
 ]
 
-# add_infer_args
+# add_infer_args (fli-infer's IC comes from the prefixed _IC_SOURCE_SPEC, not --initial-condition).
+# NOTE: there is no --backend flag in add_infer_args — fli-infer rejects it.
 _INFER_SPEC = [
-    ("initial-condition", "optional_str", None),
     ("init-cosmo", bool, False),
     ("sigma-e", float, 0.26),
     ("num-warmup", int, 500),
@@ -143,44 +174,23 @@ _INFER_SPEC = [
     ("adjoint", str, "checkpointed"),
     ("checkpoints", int, 10),
     ("sampler", str, "NUTS"),
-    ("backend", str, "numpyro"),
+    ("max-num-doublings", int, 10),
+    ("target-accept", float, 0.8),
+    ("mclmc-desired-energy-var", float, 1e-3),
+    ("mclmc-init-step-size-scale", float, 1e-4),
     ("no-progress-bar", bool, False),
 ]
 
-# add_forward_model_args (full-field likelihood: footprint mask + sigma + lightcone logging)
+# add_forward_model_args (full-field likelihood, fli-infer / fli-samples only): --lensing-output
+# (convergence vs shear — a forward-model concern) and --apodization-scale-deg live here, not in the
+# lensing / simulation-settings groups.
 _FORWARD_MODEL_SPEC = [
+    ("lensing-output", str, "convergence"),
     ("mask", "optional_str", None),
     ("sigma-unobserved", float, 1e6),
     ("log-lightcone", bool, False),
-]
-
-# add_summary_stats_* (folder scan + flat/spherical/density estimators + footprint mask)
-_SUMMARY_STATS_SPEC = [
-    # scan
-    ("folder", str, "results"),
-    ("regex", str, r".*\.parquet$"),
-    ("recursive", bool, False),
-    ("force-regen", bool, False),
-    ("normalization", str, "global"),
-    # flat-sky
-    ("ell-edges", "optional_list", None),
-    # spherical
-    ("lmax", "optional_int", None),
-    ("method", str, "healpy"),
-    # 3D P(k)
-    ("kedges", "optional_list", None),
-    ("kmax", "optional_float", None),
-    ("dk", "optional_float", None),
-    ("multipoles", list, [0]),
-    ("los", list, [0.0, 0.0, 1.0]),
-    ("compensate-order", "optional_str", None),
-    ("shotnoise-order", "optional_str", None),
-    # spherical footprint mask + apodization
-    ("mask", str, "infer_from_observer_position"),
     ("apodization-scale-deg", float, 1.0),
-    ("observer-position", "optional_list", None),
-    # common
-    ("batch-size", "optional_int", None),
+    ("map2alm-method", str, "jax"),
 ]
 
 # Per-subcommand script specs (what goes AFTER the `--`).
@@ -198,6 +208,7 @@ _SUBCOMMAND_SPECS: dict[str, list] = {
         ("name", "optional_str", None),
         ("perf", bool, False),
         ("iterations", int, 5),
+        ("shells-per-file", int, 0),
     ],
     "samples": _COMMON_SPEC
     + _SIM_SETTINGS_SPEC
@@ -222,37 +233,14 @@ _SUBCOMMAND_SPECS: dict[str, list] = {
     + _PRIOR_SPEC
     + _INFER_SPEC
     + _FORWARD_MODEL_SPEC
+    + _SOURCE_SPEC  # single-row observable (--input XOR --repo/--data-files)
+    + _IC_SOURCE_SPEC  # optional initial condition (--ic-input XOR --ic-repo/--ic-data-files)
     + [
-        ("observable", str, ""),
         ("path", str, "results/inference_runs"),
     ],
-    "2pcf": _COMMON_SPEC
-    + _LENSING_SPEC
-    + _PRIOR_SPEC
+    "extract": _SOURCE_MULTI_SPEC  # one --input / --data-files pattern per chain
     + [
-        ("observable", str, ""),
-        ("path", str, "results/2pcf_inference"),
-        ("nside", "optional_int", None),
-        ("flatsky-npix", "optional_list", None),
-        ("field-size", "optional_list", None),
-        ("lmax", int, 2047),
-        ("f-sky", float, 1.0),
-        ("sigma-e", float, 0.26),
-        ("nonlinear-fn", str, "halofit"),
-        ("chain-index", int, 0),
-        ("num-warmup", int, 100),
-        ("num-samples", int, 500),
-        ("batch-count", int, 10),
-        ("sampler", str, "NUTS"),
-        ("backend", str, "numpyro"),
-        ("seed", int, 0),
-        ("no-progress-bar", bool, False),
-    ],
-    "extract": [
-        ("path", "optional_str", None),
-        ("repo-id", "optional_str", None),
-        ("config", "optional_list", None),
-        ("set-name", "optional_str", None),
+        ("name", "optional_str", None),
         ("truth", "optional_str", None),
         ("output", str, "extract.parquet"),
         ("cosmo-keys", list, ["Omega_c", "sigma8"]),
@@ -261,20 +249,20 @@ _SUBCOMMAND_SPECS: dict[str, list] = {
         ("ddof", int, 0),
     ]
     + _COMMON_SPEC,
-    "born-rt": _LENSING_SPEC
-    + [
-        ("input", str, "results/cosmology_runs"),
-        ("output", str, "results/lensing/multi_shell"),
-    ]
+    "born-rt": [("name", "optional_str", None)]
+    + _LENSING_SPEC
+    + _SOURCE_SPEC
+    + _LENSING_POSTPROC_SPEC
     + _COMMON_SPEC,
-    "dorian-rt": _LENSING_SPEC
+    "dorian-rt": [("name", "optional_str", None)]
+    + _LENSING_SPEC
+    + _SOURCE_SPEC
+    + _LENSING_POSTPROC_SPEC
     + [
-        ("input", str, "results/cosmology_runs"),
-        ("output", str, "results/lensing/multi_shell_raytrace"),
         ("rt-interp", str, "bilinear"),
         ("no-parallel-transport", bool, False),
+        ("with-born", bool, False),
     ],
-    "summary-stats": _SUMMARY_STATS_SPEC + _COMMON_SPEC,
 }
 
 
@@ -283,24 +271,11 @@ def _to_param_key(flag: str) -> str:
     return flag.lower().replace("-", "_")
 
 
-def _emit(
-    parts: list[str], spec: list, params: dict, positional_first: str | None = None
-) -> None:
-    """Append CLI tokens for each entry in ``spec`` to ``parts``.
-
-    If ``positional_first`` is set, the matching spec entry is emitted as a
-    positional argument (no ``--flag`` prefix) at the front. Used by
-    ``fli-summary-stats`` where ``folder`` is positional.
-    """
-    positional_value = None
+def _emit(parts: list[str], spec: list, params: dict) -> None:
+    """Append CLI tokens for each entry in ``spec`` to ``parts``."""
     for flag, typ, _ in spec:
         key = _to_param_key(flag)
         value = params.get(key)
-
-        if flag == positional_first:
-            if value is not None:
-                positional_value = str(value)
-            continue
 
         if typ is bool:
             if value:
@@ -320,27 +295,17 @@ def _emit(
             if value is not None and value != "":
                 parts.extend([f"--{flag}", str(value)])
 
-    if positional_first is not None and positional_value is not None:
-        parts.append(positional_value)
-
 
 def build_command(subcommand: str, params: dict) -> str:
     """Build one ``fli-launcher ... -- fli-<subcommand> ...`` command string."""
     if subcommand not in _SUBCOMMAND_SPECS:
         raise ValueError(f"Unknown subcommand: {subcommand!r}")
 
-    positional_first = "folder" if subcommand == "summary-stats" else None
-
     if params.get("mode") == "command_only":
         parts: list[str] = [f"fli-{subcommand}"]
         if subcommand in _DISTRIBUTED_SUBCOMMANDS:
             _emit(parts, _DISTRIBUTED_SPEC, params)
-        _emit(
-            parts,
-            _SUBCOMMAND_SPECS[subcommand],
-            params,
-            positional_first=positional_first,
-        )
+        _emit(parts, _SUBCOMMAND_SPECS[subcommand], params)
         return " ".join(parts)
 
     parts: list[str] = ["fli-launcher"]
@@ -348,8 +313,6 @@ def build_command(subcommand: str, params: dict) -> str:
 
     parts += ["--", f"fli-{subcommand}"]
 
-    _emit(
-        parts, _SUBCOMMAND_SPECS[subcommand], params, positional_first=positional_first
-    )
+    _emit(parts, _SUBCOMMAND_SPECS[subcommand], params)
 
     return " ".join(parts)

@@ -9,24 +9,22 @@ import streamlit as st
 from app.components.command_builder import build_command
 from app.components.misc_forms import render_extract_form
 from app.components.slurm_form import render_slurm_form
+from app.components.source_form import render_source_form
 from app.components.styled_container import inject_custom_css
 
 inject_custom_css()
 st.title("Extract")
 
 slurm = render_slurm_form(prefix="ext_", show_tasks_per_node=False)
+# Multi-pattern source: each --input (local) / --data-files (HF) pattern is ONE MCMC chain.
+source = render_source_form(prefix="ext_", multi=True)
 extract = render_extract_form(prefix="ext_")
 
 # Build command — keys mirror _SUBCOMMAND_SPECS["extract"] in command_builder.py
-params = {**slurm}
+params = {**slurm, **source}
 params.update(
     {
-        "path": extract["input_dir"]
-        if extract["source"] == "Local directory"
-        else None,
-        "repo_id": extract["repo_id"],
-        "config": extract["config"],
-        "set_name": extract["set_name"],
+        "name": extract["set_name"],
         "truth": extract["truth_parquet"],
         "output": extract["output_file"],
         "cosmo_keys": extract["cosmo_keys"],

@@ -232,14 +232,6 @@ def render_simulation_settings(
 
         # Particles: no extra inputs needed
 
-        apodization_scale_deg = st.number_input(
-            "apodization_scale_deg",
-            value=float(defaults.get("apodization_scale_deg", 1.0)),
-            min_value=0.0,
-            format="%.2f",
-            key=f"{prefix}apodization_scale_deg",
-            help="C2 apodization scale (deg) for the off-center observer visibility mask",
-        )
         enable_x64 = st.checkbox(
             "enable_x64",
             value=bool(defaults.get("enable_x64", False)),
@@ -266,7 +258,6 @@ def render_simulation_settings(
         "kernel_width_arcmin": kernel_width_arcmin,
         "kernel_width_pixels": kernel_width_pixels,
         "pixel_window_deconvolution": pixel_window_deconvolution,
-        "apodization_scale_deg": apodization_scale_deg,
     }
     result.update(
         {
