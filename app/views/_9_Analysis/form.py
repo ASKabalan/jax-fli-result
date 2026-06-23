@@ -868,9 +868,13 @@ def _render_spectra_section(active_entries: list[dict]) -> None:
         if sph_raw:
             from . import binned_stats_form
 
-            binned_stats_form.binned_tab(sph_raw, sph_raw[0]["field_type"], "peak_counts")
+            binned_stats_form.binned_tab(
+                sph_raw, sph_raw[0]["field_type"], "peak_counts"
+            )
         else:
-            st.info("Peak counts requires a raw spherical map (SphericalDensity / SphericalKappaField).")
+            st.info(
+                "Peak counts requires a raw spherical map (SphericalDensity / SphericalKappaField)."
+            )
 
     with tab_pdf:
         if sph_raw:
@@ -878,7 +882,9 @@ def _render_spectra_section(active_entries: list[dict]) -> None:
 
             binned_stats_form.binned_tab(sph_raw, sph_raw[0]["field_type"], "pdf")
         else:
-            st.info("PDF requires a raw spherical map (SphericalDensity / SphericalKappaField).")
+            st.info(
+                "PDF requires a raw spherical map (SphericalDensity / SphericalKappaField)."
+            )
 
     with tab_star:
         if sph_raw:
@@ -886,7 +892,9 @@ def _render_spectra_section(active_entries: list[dict]) -> None:
 
             starlet_form.starlet_tab(sph_raw, sph_raw[0]["field_type"])
         else:
-            st.info("Starlet requires a raw spherical map (SphericalDensity / SphericalKappaField).")
+            st.info(
+                "Starlet requires a raw spherical map (SphericalDensity / SphericalKappaField)."
+            )
 
 
 # ---------------------------------------------------------------------------

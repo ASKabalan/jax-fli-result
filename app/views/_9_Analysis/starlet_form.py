@@ -17,8 +17,16 @@ import streamlit as st
 from .utils import _SPHERICAL_TYPES, _fig_to_png, _plt_lock, indexed_field
 
 _CMAPS = [
-    "magma", "viridis", "inferno", "plasma", "cividis",
-    "coolwarm", "RdBu_r", "hot", "bone", "gray",
+    "magma",
+    "viridis",
+    "inferno",
+    "plasma",
+    "cividis",
+    "coolwarm",
+    "RdBu_r",
+    "hot",
+    "bone",
+    "gray",
 ]
 
 
@@ -89,16 +97,28 @@ def starlet_tab(active_entries: list[dict], ref_field_type: str) -> None:
             pc1, pc2 = st.columns(2)
             with pc1:
                 panel_w = st.number_input(
-                    "Width/panel", min_value=2.0, max_value=12.0, value=4.0, step=0.5,
+                    "Width/panel",
+                    min_value=2.0,
+                    max_value=12.0,
+                    value=4.0,
+                    step=0.5,
                     key=f"{kp}_panel_w",
                 )
             with pc2:
                 panel_h = st.number_input(
-                    "Height/panel", min_value=2.0, max_value=12.0, value=3.0, step=0.5,
+                    "Height/panel",
+                    min_value=2.0,
+                    max_value=12.0,
+                    value=3.0,
+                    step=0.5,
                     key=f"{kp}_panel_h",
                 )
             spec_dpi = st.number_input(
-                "Render DPI", min_value=50, max_value=2000, value=100, step=25,
+                "Render DPI",
+                min_value=50,
+                max_value=2000,
+                value=100,
+                step=25,
                 key=f"{kp}_dpi",
             )
 

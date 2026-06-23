@@ -781,9 +781,10 @@ def compute_theory_cl(
         n(z) arrays for lensing probes so theory is computed only for the
         shells actually displayed.
     """
+    import jax
     import jax_cosmo as jc
     import jax_fli as jfli
-    import jax
+
     ENABLE_X64 = jax.config.x64_enabled
     jax.config.update("jax_enable_x64", True)
 

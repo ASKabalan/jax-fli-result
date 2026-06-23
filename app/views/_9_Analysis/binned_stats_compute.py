@@ -20,7 +20,7 @@ from .spherical_analysis_compute import (
     _n_shells,
     _setup_spectra_grid,
 )
-from .utils import _clean_ratio_ax, _make_title, _PALETTE, indexed_field
+from .utils import _PALETTE, _clean_ratio_ax, _make_title, indexed_field
 
 # ---------------------------------------------------------------------------
 # Compute
@@ -46,7 +46,9 @@ def compute_binned(
     for entry in active_entries:
         fld = indexed_field(entry)
         if stat_kind == "peak_counts":
-            stat = fld.compute_peak_counts(bins=int(bins), range=rng, normalize=normalize)
+            stat = fld.compute_peak_counts(
+                bins=int(bins), range=rng, normalize=normalize
+            )
         elif stat_kind == "pdf":
             stat = fld.compute_pdf(bins=int(bins), range=rng, density=density)
         else:

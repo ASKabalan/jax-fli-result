@@ -9,7 +9,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 import streamlit as st
 
-from .binned_stats_compute import _BINNED_BUILDERS, _build_binned_main_only, compute_binned
+from .binned_stats_compute import (
+    _BINNED_BUILDERS,
+    _build_binned_main_only,
+    compute_binned,
+)
 from .utils import (
     _SPHERICAL_TYPES,
     _apply_shared_log_ylim,
@@ -142,9 +146,7 @@ def binned_tab(
             with lc1:
                 logx = st.checkbox("Log x", value=False, key=f"{kp}_logx")
             with lc2:
-                logy = st.checkbox(
-                    "Log y", value=cfg["default_logy"], key=f"{kp}_logy"
-                )
+                logy = st.checkbox("Log y", value=cfg["default_logy"], key=f"{kp}_logy")
 
             # --- Plot layout ---
             st.markdown("**Plot layout**")
@@ -152,19 +154,35 @@ def binned_tab(
                 "Columns", min_value=1, max_value=10, value=2, key=f"{kp}_ncols"
             )
             spec_fig_w = st.number_input(
-                "Width/col", min_value=2.0, max_value=16.0, value=5.0, step=0.5,
+                "Width/col",
+                min_value=2.0,
+                max_value=16.0,
+                value=5.0,
+                step=0.5,
                 key=f"{kp}_fig_w",
             )
             spec_main_h = st.number_input(
-                "Main height", min_value=1.0, max_value=10.0, value=3.0, step=0.5,
+                "Main height",
+                min_value=1.0,
+                max_value=10.0,
+                value=3.0,
+                step=0.5,
                 key=f"{kp}_main_h",
             )
             spec_ratio_h = st.number_input(
-                "Ratio height", min_value=0.5, max_value=5.0, value=1.0, step=0.25,
+                "Ratio height",
+                min_value=0.5,
+                max_value=5.0,
+                value=1.0,
+                step=0.25,
                 key=f"{kp}_ratio_h",
             )
             spec_dpi = st.number_input(
-                "Render DPI", min_value=50, max_value=2000, value=100, step=25,
+                "Render DPI",
+                min_value=50,
+                max_value=2000,
+                value=100,
+                step=25,
                 key=f"{kp}_dpi",
             )
             title_template = st.text_input(
@@ -179,12 +197,20 @@ def binned_tab(
             bc1, bc2 = st.columns(2)
             with bc1:
                 band_a = st.number_input(
-                    "Band 1 %", min_value=0.0, max_value=100.0, value=10.0, step=1.0,
+                    "Band 1 %",
+                    min_value=0.0,
+                    max_value=100.0,
+                    value=10.0,
+                    step=1.0,
                     key=f"{kp}_band_a",
                 )
             with bc2:
                 band_b = st.number_input(
-                    "Band 2 %", min_value=0.0, max_value=100.0, value=20.0, step=1.0,
+                    "Band 2 %",
+                    min_value=0.0,
+                    max_value=100.0,
+                    value=20.0,
+                    step=1.0,
                     key=f"{kp}_band_b",
                 )
             bands = [v / 100 for v in [band_a, band_b] if v > 0]
@@ -244,7 +270,9 @@ def binned_tab(
                 "spec_ratio_h": spec_ratio_h,
                 "spec_ncols": spec_ncols,
             }
-            xlabel = "S/N" if (stat_kind == "peak_counts" and normalize) else "pixel value"
+            xlabel = (
+                "S/N" if (stat_kind == "peak_counts" and normalize) else "pixel value"
+            )
             axis_labels = {
                 "xlabel": xlabel,
                 "ylabel": cfg["ylabel"],
@@ -258,8 +286,13 @@ def binned_tab(
             with st.spinner("Rendering..."):
                 with _plt_lock:
                     fig = builder(
-                        results, layout_params, title_template, bands,
-                        axis_labels, logx, logy,
+                        results,
+                        layout_params,
+                        title_template,
+                        bands,
+                        axis_labels,
+                        logx,
+                        logy,
                     )
                     _apply_shared_log_ylim(fig)
                     old_fig = st.session_state.pop(fig_key, None)

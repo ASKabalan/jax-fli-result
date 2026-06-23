@@ -160,7 +160,9 @@ def pk_tab(active_entries: list[dict]) -> None:
                         _rtol = float(os.getenv("JAX_FLI_COMPARE_RTOL", "1e-1"))
                         _atol = float(os.getenv("JAX_FLI_COMPARE_ATOL", "1e-1"))
                         _arr = np.array([np.asarray(v) for v in _sf])
-                        if not np.all(np.isclose(_arr, _arr[0], rtol=_rtol, atol=_atol)):
+                        if not np.all(
+                            np.isclose(_arr, _arr[0], rtol=_rtol, atol=_atol)
+                        ):
                             st.warning("Power spectra have different scale factors.")
                     theory_pks = None
                     if compare_theory_pk:

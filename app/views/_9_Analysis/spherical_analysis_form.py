@@ -21,10 +21,10 @@ from . import spherical_analysis_compute as _compute
 from .spherical_analysis_compute import _CL_BUILDERS, _build_cl_main_only
 from .utils import (
     _KAPPA_TYPES,
+    _apply_shared_log_ylim,
     _fig_to_png,
     _make_title,
     _plt_lock,
-    _apply_shared_log_ylim,
     indexed_field,
     parse_slice,
 )
