@@ -72,6 +72,32 @@ def parse_slice(s: str) -> Union[slice, int]:
         return slice(None)
 
 
+def indexed_field(entry: dict):
+    """Primary field of a catalog entry, sliced by the entry's global index string."""
+    fld = entry["catalog"].field[0]
+    return fld[parse_slice(entry.get("index", ":"))]
+
+
+def _spectral_category(entry: dict) -> str | None:
+    """Spectral group an entry can be compared within: ``"cl"``, ``"pk"``, or ``None``.
+
+    A raw field maps by type (spherical → Angular Cl, DensityField → 3D P(k)); a
+    precomputed ``PowerSpectrum`` maps by its ``.unit`` (ANGULAR_CL → cl, POWER_SPECTRA
+    → pk). Flat and particle fields have no spectrum here and return ``None``.
+    """
+    ft = entry["field_type"]
+    if ft in _SPECTRA_TYPES:
+        from jax_fli._src.base._enums import SpectralUnit
+
+        unit = getattr(entry["catalog"].field[0], "unit", None)
+        return "pk" if unit == SpectralUnit.POWER_SPECTRA else "cl"
+    if ft in _DENSITY_3D:
+        return "pk"
+    if ft in _SPHERICAL_TYPES:
+        return "cl"
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Figure utilities
 # ---------------------------------------------------------------------------
@@ -123,12 +149,44 @@ def _add_shading(ax, bands: list[float]) -> None:
         ax.axhspan(1.0 - frac, 1.0 + frac, color="gray", alpha=alpha, zorder=0)
 
 
-def _clean_ratio_ax(ax, ylabel: str, bands: list[float]) -> None:
+def _clean_ratio_ax(ax, ylabel: str, bands: list[float], ylim=(0.85, 1.15)) -> None:
     _add_shading(ax, bands)
     ax.set_ylabel(ylabel, fontsize=9)
+    ax.set_xlabel("")
     ax.set_yscale("linear")
-    ax.set_ylim(0.85, 1.15)
+    if ylim is not None:
+        ax.set_ylim(*ylim)
     ax.yaxis.set_major_formatter(FormatStrFormatter("%.2f"))
+
+
+def _apply_shared_log_ylim(fig) -> None:
+    """Set one shared, data-bracketing y-range on every log-scale panel of a figure.
+
+    matplotlib's log autoscale can span >10 decades when a handful of near-zero
+    points are present (e.g. the C_ell monopole/dipole at ell = 0, 1), squashing the
+    real signal out of view. A *single* range across all log panels also keeps the
+    hidden y-tick labels on non-leftmost columns meaningful. The range brackets the
+    bulk: floor = 2nd-percentile positive value (clamped to at most 6 decades below
+    the max), padded ~half a decade each side. Linear axes (ratio panels) are left
+    untouched; no-op when there is no positive data on any log panel.
+    """
+    log_axes = [ax for ax in fig.axes if ax.get_yscale() == "log"]
+    vals = [
+        np.asarray(ln.get_ydata(), dtype=float)
+        for ax in log_axes
+        for ln in ax.get_lines()
+    ]
+    if not vals:
+        return
+    v = np.concatenate(vals)
+    v = v[np.isfinite(v) & (v > 0)]
+    if v.size < 3:
+        return
+    hi = float(np.max(v))
+    lo = max(float(np.percentile(v, 2.0)), hi * 1e-6)
+    if hi > lo > 0:
+        for ax in log_axes:
+            ax.set_ylim(lo / 2.0, hi * 2.0)
 
 
 # ---------------------------------------------------------------------------

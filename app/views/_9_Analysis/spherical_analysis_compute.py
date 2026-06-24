@@ -8,6 +8,7 @@ field types (spherical density, kappa, flat).
 """
 from __future__ import annotations
 
+from math import ceil
 from typing import Any, Callable
 
 import matplotlib.gridspec as gridspec
@@ -23,6 +24,7 @@ from .utils import (
     _PALETTE,
     _clean_ratio_ax,
     _make_title,
+    indexed_field,
     pixel_window_function,
 )
 
@@ -31,21 +33,57 @@ from .utils import (
 # ---------------------------------------------------------------------------
 
 
-def _staircase_coords(n_selected: int) -> tuple[list[tuple[int, int]], int, int]:
-    """Return (coords, nrows, ncols) for a lower-triangular staircase layout."""
+def _grid_coords(
+    n_selected: int, ncols: int
+) -> tuple[list[tuple[int, int]], int, int, tuple[int, int]]:
+    """Row-major rectangular layout reserving the top-right cell for the legend.
+
+    Returns ``(coords, nrows, ncols, legend_cell)``. ``coords`` is the ``(row, col)``
+    of each of the ``n`` panels in row-major order, skipping the reserved legend cell
+    at ``(0, ncols - 1)``. Trailing cells of the last row are left empty.
+    """
+    n = max(1, int(n_selected))
+    # Cap to n+1 so picking >= n+1 columns yields a single row (all panels + legend),
+    # and never produces absurdly wide grids of empty cells.
+    ncols = max(1, min(int(ncols), n + 1))
+    legend_cell = (0, ncols - 1)
+    nrows = max(1, ceil((n + 1) / ncols))
     coords: list[tuple[int, int]] = []
-    r = 0
-    while len(coords) < n_selected:
-        for c in range(r + 1):
-            if len(coords) < n_selected:
+    for r in range(nrows):
+        for c in range(ncols):
+            if (r, c) == legend_cell:
+                continue
+            if len(coords) < n:
                 coords.append((r, c))
-        r += 1
-    nrows = coords[-1][0] + 1 if coords else 1
-    return coords, nrows, nrows  # ncols == nrows for staircase
+    return coords, nrows, ncols, legend_cell
 
 
-def _attach_legend(fig, handles, labels, bands: list[float]) -> None:
-    """Append shading-band patches to existing handles and attach a figure legend."""
+def _setup_spectra_grid(n, layout_params, height_ratios):
+    """Build the figure + outer GridSpec shared by every Cl builder.
+
+    Returns ``(fig, outer_gs, coords, coords_set, legend_cell)``. The number of
+    columns is read from ``layout_params["spec_ncols"]`` (square-ish ``ceil(sqrt(n))``
+    fallback when absent).
+    """
+    ncols_req = int(layout_params.get("spec_ncols") or max(1, ceil(n**0.5)))
+    coords, nrows, ncols, legend_cell = _grid_coords(n, ncols_req)
+    fig = plt.figure(
+        figsize=(
+            max(12, float(layout_params["spec_fig_w"]) * ncols),
+            sum(height_ratios) * nrows,
+        )
+    )
+    outer_gs = gridspec.GridSpec(nrows, ncols, figure=fig, wspace=0.08, hspace=0.25)
+    return fig, outer_gs, coords, set(coords), legend_cell
+
+
+def _attach_legend(fig, handles, labels, bands: list[float], anchor=None) -> None:
+    """Append shading-band patches to existing handles and attach a figure legend.
+
+    When ``anchor`` (a figure-fraction Bbox) is given the legend is centered inside
+    that cell (the reserved top-right grid cell); otherwise it floats at the top-right
+    of the figure.
+    """
     if bands:
         spacer = mlines.Line2D([], [], color="none")
         handles.append(spacer)
@@ -58,23 +96,36 @@ def _attach_legend(fig, handles, labels, bands: list[float]) -> None:
             handles.append(patch)
             labels.append(f"±{frac*100:.0f}%")
 
-    leg = fig.legend(
-        handles,
-        labels,
-        loc="upper right",
-        bbox_to_anchor=(0.9, 0.9),
-        fontsize=12,
-        frameon=True,
-        borderpad=1.0,
-        labelspacing=0.8,
-    )
+    if anchor is not None:
+        leg = fig.legend(
+            handles,
+            labels,
+            loc="center",
+            bbox_to_anchor=anchor,
+            bbox_transform=fig.transFigure,
+            fontsize=12,
+            frameon=True,
+            borderpad=1.0,
+            labelspacing=0.8,
+        )
+    else:
+        leg = fig.legend(
+            handles,
+            labels,
+            loc="upper right",
+            bbox_to_anchor=(0.9, 0.9),
+            fontsize=12,
+            frameon=True,
+            borderpad=1.0,
+            labelspacing=0.8,
+        )
     for legobj in leg.legend_handles:
         if isinstance(legobj, mlines.Line2D):
             legobj.set_linewidth(4.0)
 
 
 def _make_inner_gs(outer_gs, row, col, height_ratios):
-    """Create a nested GridSpec for one staircase cell."""
+    """Create a nested GridSpec for one grid cell."""
     return gridspec.GridSpecFromSubplotSpec(
         len(height_ratios),
         1,
@@ -99,7 +150,7 @@ def _cl_slice(cl, shell_idx: int, n_shells: int):
 # Uniform signature for all builders:
 #   spectra_results  – list of (label, Cl), already sliced to the chosen shells
 #   theory_result    – Cl or None
-#   layout_params    – {"spec_fig_w", "spec_main_h", "spec_ratio_h"}
+#   layout_params    – {"spec_fig_w", "spec_main_h", "spec_ratio_h", "spec_ncols"}
 #   title_template   – str
 #   bands            – list[float] (fractional shading bands, e.g. [0.02, 0.05])
 #
@@ -115,22 +166,16 @@ def _build_cl_main_only(
     title_template,
     bands,
 ) -> Figure:
-    """Staircase Cl panels only — no ratio rows."""
+    """Rectangular Cl panels only — no ratio rows."""
     ns = _n_shells(spectra_results)
-    n = ns
-    coords, nrows, ncols = _staircase_coords(n)
     height_ratios = [float(layout_params["spec_main_h"])]
-
-    fig = plt.figure(
-        figsize=(
-            max(12, float(layout_params["spec_fig_w"]) * ncols),
-            height_ratios[0] * nrows,
-        )
+    fig, outer_gs, coords, coords_set, legend_cell = _setup_spectra_grid(
+        ns, layout_params, height_ratios
     )
-    outer_gs = gridspec.GridSpec(nrows, ncols, figure=fig, wspace=0.08, hspace=0.25)
 
     handles_out, labels_out = [], []
     for i, (row, col) in enumerate(coords):
+        is_bottom = (row + 1, col) not in coords_set
         inner_gs = _make_inner_gs(outer_gs, row, col, height_ratios)
         ax = fig.add_subplot(inner_gs[0, 0])
 
@@ -145,13 +190,24 @@ def _build_cl_main_only(
         if col == 0:
             ax.set_ylabel(r"$C_\ell$")
         else:
+            ax.set_ylabel("")
             ax.tick_params(labelleft=False)
-        ax.set_xlabel(r"$\ell$")
+        if is_bottom:
+            ax.set_xlabel(r"$\ell$")
+        else:
+            ax.set_xlabel("")
+            ax.tick_params(labelbottom=False)
 
         if i == 0:
             handles_out, labels_out = ax.get_legend_handles_labels()
 
-    _attach_legend(fig, handles_out, labels_out, bands)
+    _attach_legend(
+        fig,
+        handles_out,
+        labels_out,
+        bands,
+        anchor=outer_gs[legend_cell].get_position(fig),
+    )
     return fig
 
 
@@ -162,21 +218,15 @@ def _build_cl_with_ref_ratio(
     title_template,
     bands,
 ) -> Figure:
-    """Staircase Cl panels + ratio vs reference row."""
+    """Rectangular Cl panels + ratio vs reference row."""
     ns = _n_shells(spectra_results)
-    n = ns
-    coords, nrows, ncols = _staircase_coords(n)
-    coords_set = set(coords)
     height_ratios = [
         float(layout_params["spec_main_h"]),
         float(layout_params["spec_ratio_h"]),
     ]
-    figsize_y = sum(height_ratios) * nrows
-
-    fig = plt.figure(
-        figsize=(max(12, float(layout_params["spec_fig_w"]) * ncols), figsize_y)
+    fig, outer_gs, coords, coords_set, legend_cell = _setup_spectra_grid(
+        ns, layout_params, height_ratios
     )
-    outer_gs = gridspec.GridSpec(nrows, ncols, figure=fig, wspace=0.08, hspace=0.25)
 
     handles_out, labels_out = [], []
     for i, (row, col) in enumerate(coords):
@@ -194,6 +244,7 @@ def _build_cl_with_ref_ratio(
         if col == 0:
             ax_main.set_ylabel(r"$C_\ell$")
         else:
+            ax_main.set_ylabel("")
             ax_main.tick_params(labelleft=False)
         ax_main.tick_params(labelbottom=False)
         ax_main.set_xlabel("")
@@ -216,7 +267,13 @@ def _build_cl_with_ref_ratio(
         else:
             ax_r.tick_params(labelbottom=False)
 
-    _attach_legend(fig, handles_out, labels_out, bands)
+    _attach_legend(
+        fig,
+        handles_out,
+        labels_out,
+        bands,
+        anchor=outer_gs[legend_cell].get_position(fig),
+    )
     return fig
 
 
@@ -227,21 +284,15 @@ def _build_cl_with_theory_ratio(
     title_template,
     bands,
 ) -> Figure:
-    """Staircase Cl panels + ratio vs theory row."""
+    """Rectangular Cl panels + ratio vs theory row."""
     ns = _n_shells(spectra_results)
-    n = ns
-    coords, nrows, ncols = _staircase_coords(n)
-    coords_set = set(coords)
     height_ratios = [
         float(layout_params["spec_main_h"]),
         float(layout_params["spec_ratio_h"]),
     ]
-    figsize_y = sum(height_ratios) * nrows
-
-    fig = plt.figure(
-        figsize=(max(12, float(layout_params["spec_fig_w"]) * ncols), figsize_y)
+    fig, outer_gs, coords, coords_set, legend_cell = _setup_spectra_grid(
+        ns, layout_params, height_ratios
     )
-    outer_gs = gridspec.GridSpec(nrows, ncols, figure=fig, wspace=0.08, hspace=0.25)
 
     handles_out, labels_out = [], []
     for i, (row, col) in enumerate(coords):
@@ -270,6 +321,7 @@ def _build_cl_with_theory_ratio(
         if col == 0:
             ax_main.set_ylabel(r"$C_\ell$")
         else:
+            ax_main.set_ylabel("")
             ax_main.tick_params(labelleft=False)
         ax_main.tick_params(labelbottom=False)
         ax_main.set_xlabel("")
@@ -290,7 +342,13 @@ def _build_cl_with_theory_ratio(
         else:
             ax_t.tick_params(labelbottom=False)
 
-    _attach_legend(fig, handles_out, labels_out, bands)
+    _attach_legend(
+        fig,
+        handles_out,
+        labels_out,
+        bands,
+        anchor=outer_gs[legend_cell].get_position(fig),
+    )
     return fig
 
 
@@ -301,22 +359,16 @@ def _build_cl_with_both_ratios(
     title_template,
     bands,
 ) -> Figure:
-    """Staircase Cl panels + ratio vs ref row + ratio vs theory row."""
+    """Rectangular Cl panels + ratio vs ref row + ratio vs theory row."""
     ns = _n_shells(spectra_results)
-    n = ns
-    coords, nrows, ncols = _staircase_coords(n)
-    coords_set = set(coords)
     height_ratios = [
         float(layout_params["spec_main_h"]),
         float(layout_params["spec_ratio_h"]),
         float(layout_params["spec_ratio_h"]),
     ]
-    figsize_y = sum(height_ratios) * nrows
-
-    fig = plt.figure(
-        figsize=(max(12, float(layout_params["spec_fig_w"]) * ncols), figsize_y)
+    fig, outer_gs, coords, coords_set, legend_cell = _setup_spectra_grid(
+        ns, layout_params, height_ratios
     )
-    outer_gs = gridspec.GridSpec(nrows, ncols, figure=fig, wspace=0.08, hspace=0.25)
 
     handles_out, labels_out = [], []
     for i, (row, col) in enumerate(coords):
@@ -343,6 +395,7 @@ def _build_cl_with_both_ratios(
         if col == 0:
             ax_main.set_ylabel(r"$C_\ell$")
         else:
+            ax_main.set_ylabel("")
             ax_main.tick_params(labelleft=False)
         ax_main.tick_params(labelbottom=False)
         ax_main.set_xlabel("")
@@ -377,7 +430,13 @@ def _build_cl_with_both_ratios(
         else:
             ax_t.tick_params(labelbottom=False)
 
-    _attach_legend(fig, handles_out, labels_out, bands)
+    _attach_legend(
+        fig,
+        handles_out,
+        labels_out,
+        bands,
+        anchor=outer_gs[legend_cell].get_position(fig),
+    )
     return fig
 
 
@@ -390,16 +449,10 @@ def _build_cl_ratio_only_ref(
 ) -> Figure:
     """Ratio vs reference panels only — no main Cl panel."""
     ns = _n_shells(spectra_results)
-    n = ns
-    coords, nrows, ncols = _staircase_coords(n)
-    coords_set = set(coords)
     height_ratios = [float(layout_params["spec_ratio_h"])]
-    figsize_y = height_ratios[0] * nrows
-
-    fig = plt.figure(
-        figsize=(max(12, float(layout_params["spec_fig_w"]) * ncols), figsize_y)
+    fig, outer_gs, coords, coords_set, legend_cell = _setup_spectra_grid(
+        ns, layout_params, height_ratios
     )
-    outer_gs = gridspec.GridSpec(nrows, ncols, figure=fig, wspace=0.08, hspace=0.25)
 
     handles_out, labels_out = [], []
     for i, (row, col) in enumerate(coords):
@@ -427,7 +480,13 @@ def _build_cl_ratio_only_ref(
         if i == 0:
             handles_out, labels_out = ax.get_legend_handles_labels()
 
-    _attach_legend(fig, handles_out, labels_out, bands)
+    _attach_legend(
+        fig,
+        handles_out,
+        labels_out,
+        bands,
+        anchor=outer_gs[legend_cell].get_position(fig),
+    )
     return fig
 
 
@@ -440,16 +499,10 @@ def _build_cl_ratio_only_theory(
 ) -> Figure:
     """Ratio vs theory panels only — no main Cl panel."""
     ns = _n_shells(spectra_results)
-    n = ns
-    coords, nrows, ncols = _staircase_coords(n)
-    coords_set = set(coords)
     height_ratios = [float(layout_params["spec_ratio_h"])]
-    figsize_y = height_ratios[0] * nrows
-
-    fig = plt.figure(
-        figsize=(max(12, float(layout_params["spec_fig_w"]) * ncols), figsize_y)
+    fig, outer_gs, coords, coords_set, legend_cell = _setup_spectra_grid(
+        ns, layout_params, height_ratios
     )
-    outer_gs = gridspec.GridSpec(nrows, ncols, figure=fig, wspace=0.08, hspace=0.25)
 
     handles_out, labels_out = [], []
     for i, (row, col) in enumerate(coords):
@@ -476,7 +529,13 @@ def _build_cl_ratio_only_theory(
         if i == 0:
             handles_out, labels_out = ax.get_legend_handles_labels()
 
-    _attach_legend(fig, handles_out, labels_out, bands)
+    _attach_legend(
+        fig,
+        handles_out,
+        labels_out,
+        bands,
+        anchor=outer_gs[legend_cell].get_position(fig),
+    )
     return fig
 
 
@@ -489,17 +548,11 @@ def _build_cl_ratio_only_both(
 ) -> Figure:
     """Both ratio rows (vs ref and vs theory) — no main Cl panel."""
     ns = _n_shells(spectra_results)
-    n = ns
-    coords, nrows, ncols = _staircase_coords(n)
-    coords_set = set(coords)
     rh = float(layout_params["spec_ratio_h"])
     height_ratios = [rh, rh]
-    figsize_y = sum(height_ratios) * nrows
-
-    fig = plt.figure(
-        figsize=(max(12, float(layout_params["spec_fig_w"]) * ncols), figsize_y)
+    fig, outer_gs, coords, coords_set, legend_cell = _setup_spectra_grid(
+        ns, layout_params, height_ratios
     )
-    outer_gs = gridspec.GridSpec(nrows, ncols, figure=fig, wspace=0.08, hspace=0.25)
 
     handles_out, labels_out = [], []
     for i, (row, col) in enumerate(coords):
@@ -541,7 +594,13 @@ def _build_cl_ratio_only_both(
         else:
             ax_t.tick_params(labelbottom=False)
 
-    _attach_legend(fig, handles_out, labels_out, bands)
+    _attach_legend(
+        fig,
+        handles_out,
+        labels_out,
+        bands,
+        anchor=outer_gs[legend_cell].get_position(fig),
+    )
     return fig
 
 
@@ -643,31 +702,43 @@ def compute_cls(
     active_entries: list[dict],
     lmin: int,
     lmax: int,
-    selected_shells: slice,
 ) -> list[tuple[str, Any]]:
-    """Compute angular Cl for any spherical or flat field type.
+    """Return one Angular Cl ``PowerSpectrum`` per entry, all sliced to ``[lmin, lmax]``.
 
-    Density fields (SphericalDensity / FlatDensity) are contrast-normalised
-    before computing.  Flat fields use ``angular_cl(ell_edges=…)``; spherical
-    fields (including SphericalKappaField) use
-    ``angular_cl(lmax=…, method='healpy')``.
+    Entries are dispatched per type so a selection may mix precomputed spectra with
+    raw maps:
+      - ``PowerSpectrum`` (already an Angular Cl) — used as-is.
+      - ``SphericalDensity`` — contrast-normalised (``to(OVERDENSITY, per_plane)``) then
+        ``angular_cl(lmax=…, method='healpy')``.
+      - ``SphericalKappaField`` — ``angular_cl(...)`` directly (no normalisation).
+
+    Off-centre observers yield a mask, so ``angular_cl`` returns decoupled bandpowers;
+    such a Cl is only comparable with stored Cls on the same ell grid (the caller's
+    ell-length check guards this).
     """
     from jax_fli.units import OVERDENSITY
 
     spectra_results = []
     for entry in active_entries:
-        fld = entry["catalog"].field[0][selected_shells]
+        fld = indexed_field(entry)
         ft = entry["field_type"]
-        if ft in ("SphericalDensity"):
+        if ft == "PowerSpectrum":
+            ps = fld  # already an Angular Cl spectrum
+        elif ft == "SphericalDensity":
             fld = fld.to(OVERDENSITY, normalization="per_plane")
-        elif ft not in ("SphericalKappaField"):
+            ps = fld.angular_cl(
+                lmax=int(lmax), method="healpy", mask=_observer_visibility_mask(fld)
+            )
+        elif ft == "SphericalKappaField":
+            ps = fld.angular_cl(
+                lmax=int(lmax), method="healpy", mask=_observer_visibility_mask(fld)
+            )
+        else:
             raise ValueError(f"Unsupported field type for Cl computation: {ft}")
-        mask = _observer_visibility_mask(fld)
-        ps = fld.angular_cl(lmax=int(lmax), method="healpy", mask=mask)
-        lmin_idx = int(np.searchsorted(np.asarray(ps.wavenumber), int(lmin)))
-        cl = ps.replace(
-            array=ps.array[..., lmin_idx:], wavenumber=ps.wavenumber[lmin_idx:]
-        )
+        ells = np.asarray(ps.wavenumber)
+        lo = int(np.searchsorted(ells, int(lmin)))
+        hi = int(np.searchsorted(ells, int(lmax), side="right"))
+        cl = ps.replace(array=ps.array[..., lo:hi], wavenumber=ps.wavenumber[lo:hi])
         spectra_results.append((entry["label"], cl))
     return spectra_results
 
@@ -710,8 +781,12 @@ def compute_theory_cl(
         n(z) arrays for lensing probes so theory is computed only for the
         shells actually displayed.
     """
+    import jax
     import jax_cosmo as jc
     import jax_fli as jfli
+
+    ENABLE_X64 = jax.config.x64_enabled
+    jax.config.update("jax_enable_x64", True)
 
     ref_field_obj = ref_obj.field[0]
     if selected_shells is not None:
@@ -757,4 +832,5 @@ def compute_theory_cl(
     if apply_pixwin and theory_result is not None:
         theory_result = _apply_pixwin(theory_result, ref_field_obj, lmin, lmax)
 
+    jax.config.update("jax_enable_x64", ENABLE_X64)
     return theory_result

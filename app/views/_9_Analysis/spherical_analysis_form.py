@@ -19,7 +19,15 @@ import streamlit as st
 
 from . import spherical_analysis_compute as _compute
 from .spherical_analysis_compute import _CL_BUILDERS, _build_cl_main_only
-from .utils import _KAPPA_TYPES, _fig_to_png, _make_title, _plt_lock, parse_slice
+from .utils import (
+    _KAPPA_TYPES,
+    _apply_shared_log_ylim,
+    _fig_to_png,
+    _make_title,
+    _plt_lock,
+    indexed_field,
+    parse_slice,
+)
 
 # ---------------------------------------------------------------------------
 # Session-state callbacks for point-source z list
@@ -112,35 +120,42 @@ def render_field_map(
 # ---------------------------------------------------------------------------
 
 
-def cl_tab(
-    active_entries: list[dict],
-    ref_field_type: str,
-    precomputed: bool = False,
-) -> None:
-    """Render the Angular Cl tab for any spherical or flat field type.
+def cl_tab(active_entries: list[dict]) -> None:
+    """Render the Angular Cl tab for spherical fields and precomputed Cl spectra.
 
-    When ``precomputed=True`` the spectra are already stored in the catalog
-    (``PowerSpectrum`` objects) and are only sliced to the chosen ell range —
-    no heavy computation is triggered.
+    Entries may be mixed: a raw ``SphericalDensity`` / ``SphericalKappaField`` is
+    transformed via ``angular_cl`` while a precomputed ``PowerSpectrum`` (Angular Cl) is
+    used as-is. All converge to ``PowerSpectrum`` and are compared together. Raw density
+    and raw kappa probes cannot be mixed; a bare ``PowerSpectrum``'s probe is unknowable
+    and is allowed with either (the shell-count / ell-grid checks guard real mismatches).
     """
     import jax.numpy as jnp
 
-    all_types = {e["field_type"] for e in active_entries}
-    if not precomputed and len(all_types) > 1:
+    _raw_types = {
+        e["field_type"] for e in active_entries if e["field_type"] != "PowerSpectrum"
+    }
+    if (_raw_types & {"SphericalDensity", "FlatDensity"}) and (
+        _raw_types & _KAPPA_TYPES
+    ):
         st.error(
-            "Spectra plotting only supported when all fields are the same type. "
-            f"Found: {', '.join(sorted(all_types))}"
+            "Cannot mix density and kappa fields in the same Angular Cl comparison."
         )
         return
+    is_kappa = bool(_raw_types & _KAPPA_TYPES)
 
-    # For precomputed catalogs, extract the stored ell range up front so we
-    # can use it as lmin/lmax defaults and validate user input against it.
-    _lmin_stored = _lmax_stored = _ells_full = None
-    if precomputed:
-        _ref_ps = active_entries[0]["catalog"].field[0]
-        _ells_full = np.asarray(_ref_ps.wavenumber)
-        _lmin_stored = int(_ells_full[0]) if _ells_full.size > 0 else 0
-        _lmax_stored = int(_ells_full[-1]) if _ells_full.size > 0 else 500
+    # Default LMAX = smallest ell ceiling every entry can provide (stored range for
+    # precomputed spectra, 3*nside for raw spherical maps).
+    _lmaxes = []
+    for e in active_entries:
+        _fld0 = e["catalog"].field[0]
+        if e["field_type"] == "PowerSpectrum":
+            _w = np.asarray(_fld0.wavenumber)
+            if _w.size:
+                _lmaxes.append(int(_w[-1]))
+        else:
+            _ns = getattr(_fld0, "nside", 512) or 512
+            _lmaxes.append(int(3 * _ns))
+    _def_lmax = min(_lmaxes) if _lmaxes else 1500
 
     spec_params_col, spec_plot_col = st.columns([1, 3])
 
@@ -160,29 +175,16 @@ def cl_tab(
             active_entries = [active_entries[_ref_idx]] + [
                 e for i, e in enumerate(active_entries) if i != _ref_idx
             ]
-            ref_field_type = active_entries[0]["field_type"]
-            is_kappa = ref_field_type in _KAPPA_TYPES
 
             # --- ℓ range ---
-            _default_nside = (
-                getattr(active_entries[0]["catalog"].field[0], "nside", 512) or 512
-            )
             lc1, lc2 = st.columns(2)
             with lc1:
                 lmin = st.number_input(
-                    "LMIN",
-                    min_value=0,
-                    value=(_lmin_stored or 0) if precomputed else 10,
-                    key="analysis_lmin",
+                    "LMIN", min_value=0, value=10, key="analysis_lmin"
                 )
             with lc2:
                 lmax = st.number_input(
-                    "LMAX",
-                    min_value=10,
-                    value=(_lmax_stored or int(3 * _default_nside))
-                    if precomputed
-                    else int(3 * _default_nside),
-                    key="analysis_lmax",
+                    "LMAX", min_value=10, value=int(_def_lmax), key="analysis_lmax"
                 )
 
             nonlinear_fn_name = st.selectbox(
@@ -289,21 +291,20 @@ def cl_tab(
                         ),
                     )
 
-            # --- Shell selection (applied at compute time, not plot time) ---
-            st.markdown("**Shell selection**")
-            _ref_arr = active_entries[0]["catalog"].field[0].array
+            # --- Shell count (from the globally-indexed reference field) ---
+            _ref_arr = indexed_field(active_entries[0]).array
             _ns_catalog = int(_ref_arr.shape[0]) if _ref_arr.ndim > 1 else 1
-            cl_index = st.text_input(
-                "Shell index (numpy-style)",
-                value=":",
-                key="analysis_cl_index",
-                disabled=(_ns_catalog == 1),
-                help="Examples: ':' (all), '0:6', '::2', '-3:'. "
-                "Applied when you click Compute / Plot — re-click to update.",
-            )
 
             # --- Plot layout ---
             st.markdown("**Plot layout**")
+            spec_ncols = st.number_input(
+                "Columns",
+                min_value=1,
+                max_value=10,
+                value=2,
+                key="analysis_spec_ncols",
+                disabled=(_ns_catalog == 1),
+            )
             spec_fig_w = st.number_input(
                 "Width/col",
                 min_value=2.0,
@@ -371,7 +372,7 @@ def cl_tab(
             cb1, cb2 = st.columns(2)
             with cb1:
                 compute_btn = st.button(
-                    "Plot" if precomputed else "Compute",
+                    "Compute",
                     key="analysis_compute_btn",
                     type="primary",
                 )
@@ -390,102 +391,58 @@ def cl_tab(
             st.session_state.pop("analysis_spectra_results", None)
             st.session_state.pop("analysis_theory_result", None)
 
-            selected_shells = parse_slice(cl_index)
-
-            if precomputed:
-                assert (
-                    _lmin_stored is not None
-                    and _lmax_stored is not None
-                    and _ells_full is not None
+            with st.spinner("Computing angular power spectra..."):
+                spectra_results = _compute.compute_cls(
+                    active_entries,
+                    int(lmin),
+                    int(lmax),
                 )
-                if int(lmin) < _lmin_stored or int(lmax) > _lmax_stored:
-                    st.error(
-                        f"LMIN/LMAX ({lmin}–{lmax}) outside stored range "
-                        f"[{_lmin_stored}, {_lmax_stored}]."
-                    )
-                    st.stop()
-                _lmin_idx = int(np.searchsorted(_ells_full, int(lmin)))
-                _lmax_idx = int(np.searchsorted(_ells_full, int(lmax), side="right"))
-                spectra_results = []
-                for e in active_entries:
-                    ps = e["catalog"].field[0][selected_shells]
-                    ps = ps.replace(
-                        array=ps.array[..., _lmin_idx:_lmax_idx],
-                        wavenumber=ps.wavenumber[_lmin_idx:_lmax_idx],
-                    )
-                    spectra_results.append((e["label"], ps))
-            else:
-                with st.spinner("Computing angular power spectra..."):
-                    spectra_results = _compute.compute_cls(
-                        active_entries,
-                        int(lmin),
-                        int(lmax),
-                        selected_shells,  # type: ignore
-                    )
 
-            # Slice to selected shells now — builders receive pre-sliced data
             if spectra_results:
-                # Compare batch size
-                if len(set(s[1].spectra.shape[0] for s in spectra_results)) > 1:
+                # HARD checks — guarantee the spectra are actually comparable.
+                if len({s[1].spectra.shape[0] for s in spectra_results}) > 1:
                     st.error(
-                        "Spectra have different number of shells after slicing — cannot compare."
+                        "Spectra have different number of shells — cannot compare."
                     )
                     st.stop()
-                spec_lengths = [s[1].wavenumber.size for s in spectra_results]
-                if len(set(spec_lengths)) > 1:
+                if len({s[1].wavenumber.size for s in spectra_results}) > 1:
                     st.error(
-                        "Spectra have different ell lengths after slicing — cannot compare."
+                        "Spectra have different ℓ-grid lengths — cannot compare. "
+                        "This happens when mixing full-multipole Cls with masked / "
+                        "decoupled bandpowers, or Cls computed to different ℓ ranges."
                     )
                     st.stop()
-                comoving_centers = np.array(
-                    [s[1].comoving_centers for s in spectra_results]
-                )
-                scale_factors = np.array([s[1].scale_factors for s in spectra_results])
-                z_sources = np.array([s[1].z_sources for s in spectra_results])
-                density_width = np.array([s[1].density_width for s in spectra_results])
 
-                rtol = float(os.getenv("JAX_FLI_COMPARE_RTOL", "1e-1"))
-                atol = float(os.getenv("JAX_FLI_COMPARE_ATOL", "1e-1"))
-
-                if not np.all(
-                    np.isclose(
-                        comoving_centers, comoving_centers[0], rtol=rtol, atol=atol
-                    )
-                ):
-                    st.warning(
-                        "Spectra have different comoving centers — cannot compare."
-                    )
-                    for i, cc in enumerate(comoving_centers):
-                        print(f"  {spectra_results[i][0]}: {cc}")
-                if not np.all(
-                    np.isclose(scale_factors, scale_factors[0], rtol=rtol, atol=atol)
-                ):
-                    st.warning("Spectra have different scale factors — cannot compare.")
-                    for i, sf in enumerate(scale_factors):
-                        print(f"  {spectra_results[i][0]}: {sf}")
-                if not np.all(
-                    np.isclose(z_sources, z_sources[0], rtol=rtol, atol=atol)
-                ):
-                    st.warning("Spectra have different z sources — cannot compare.")
-                    for i, zs in enumerate(z_sources):
-                        print(f"  {spectra_results[i][0]}: {zs}")
-                if not np.all(
-                    np.isclose(density_width, density_width[0], rtol=rtol, atol=atol)
-                ):
-                    st.warning(
-                        "Spectra have different density widths — cannot compare."
-                    )
-                    for i, dw in enumerate(density_width):
-                        print(f"  {spectra_results[i][0]}: {dw}")
+                # SOFT metadata warnings — density probes only. Kappa (weak-lensing)
+                # spectra carry no shell width/χ/z, so skip them entirely. Each check
+                # is guarded against None (a mixed precomputed entry may lack metadata).
+                if not is_kappa:
+                    rtol = float(os.getenv("JAX_FLI_COMPARE_RTOL", "1e-1"))
+                    atol = float(os.getenv("JAX_FLI_COMPARE_ATOL", "1e-1"))
+                    for _attr, _label in [
+                        ("comoving_centers", "comoving centers"),
+                        ("scale_factors", "scale factors"),
+                        ("z_sources", "z sources"),
+                        ("density_width", "density widths"),
+                    ]:
+                        _vals = [getattr(s[1], _attr, None) for s in spectra_results]
+                        if any(v is None for v in _vals):
+                            continue
+                        _arr = np.array([np.asarray(v) for v in _vals])
+                        if not np.all(np.isclose(_arr, _arr[0], rtol=rtol, atol=atol)):
+                            st.warning(f"Spectra have different {_label}.")
+                            for i, v in enumerate(_vals):
+                                print(f"  {spectra_results[i][0]}: {np.asarray(v)}")
 
             if compare_theory and spectra_results:
+                ref_entry = active_entries[0]
                 ells = jnp.asarray(spectra_results[0][1].wavenumber)
                 z_sources = list(
                     st.session_state.get("analysis_nz_point_sources", [0.5])
                 )
                 with st.spinner("Computing theory Cl..."):
                     theory_result = _compute.compute_theory_cl(
-                        active_entries[0]["catalog"],
+                        ref_entry["catalog"],
                         ells,
                         nonlinear_fn_name,
                         probe_type,
@@ -494,7 +451,7 @@ def cl_tab(
                         apply_pixwin,
                         int(lmin),
                         int(lmax),
-                        selected_shells=selected_shells,
+                        selected_shells=parse_slice(ref_entry.get("index", ":")),
                     )
 
             st.session_state["analysis_spectra_results"] = spectra_results
@@ -508,6 +465,7 @@ def cl_tab(
                 "spec_fig_w": spec_fig_w,
                 "spec_main_h": spec_main_h,
                 "spec_ratio_h": spec_ratio_h,
+                "spec_ncols": spec_ncols,
             }
             eff_compare_ref = compare_ref and len(spectra_results) > 1
             eff_compare_theory = compare_theory and theory_result is not None
@@ -525,6 +483,7 @@ def cl_tab(
                         title_template,
                         bands,
                     )
+                    _apply_shared_log_ylim(fig_cl)
                     old_fig = st.session_state.pop("analysis_spectra_fig", None)
                     if old_fig is not None:
                         plt.close(old_fig)
@@ -545,8 +504,4 @@ def cl_tab(
                     spectra_fig, key_prefix="spectra", filename="spectra"
                 )
         else:
-            st.info(
-                "Click **Plot** to display angular power spectra."
-                if precomputed
-                else "Click **Compute** to generate angular power spectra."
-            )
+            st.info("Click **Compute** to generate angular power spectra.")

@@ -110,6 +110,18 @@ def render_output_form(
             result["perf"] = perf
             result["iterations"] = iterations if perf else None
 
+        shells_per_file = st.number_input(
+            "shells_per_file",
+            min_value=0,
+            value=int(defaults.get("shells_per_file", 0)),
+            key=f"{prefix}shells_per_file",
+            help=(
+                "Stream a multi-shell lightcone N shells per parquet file (0 = one file). "
+                "When >=1, output is treated as a directory."
+            ),
+        )
+        result["shells_per_file"] = int(shells_per_file)
+
     return result
 
 
@@ -160,24 +172,16 @@ def render_infer_config_form(
     Returns
     -------
     dict with keys:
-        observable (full path), path (output dir), chain_index, seed,
-        adjoint, checkpoints, num_warmup, num_samples, batch_count,
-        sampler, backend, sigma_e, init_cosmo.
+        path (output dir), chain_index, seed, adjoint, checkpoints, num_warmup,
+        num_samples, batch_count, sampler, max_num_doublings, target_accept,
+        mclmc_desired_energy_var, mclmc_init_step_size_scale, sigma_e, init_cosmo,
+        no_progress_bar. The observable / initial-condition sources are rendered
+        separately by render_source_form in the view (fli-infer --input / --ic-input).
     """
     defaults = defaults or {}
 
     with st.container(border=True):
         st.subheader("Inference Config")
-
-        observable = (
-            st.text_input(
-                "observable path",
-                value=defaults.get("observable_path", "observables/BORN_SMALL.parquet"),
-                key=f"{prefix}obs_path",
-                help="Full path to the observable parquet file (fli-infer --observable).",
-            )
-            or "observables/BORN_SMALL.parquet"
-        )
 
         path = st.text_input(
             "output_dir",
@@ -237,19 +241,52 @@ def render_infer_config_form(
             key=f"{prefix}batch_count",
         )
 
-        sm_col, be_col = st.columns(2)
-        with sm_col:
-            sampler = st.selectbox(
-                "sampler",
-                ["NUTS", "HMC", "MCLMC"],
-                key=f"{prefix}sampler",
+        sampler = st.selectbox(
+            "sampler",
+            ["NUTS", "MCLMC"],
+            key=f"{prefix}sampler",
+        )
+
+        # NUTS tuning
+        mnd_col, ta_col = st.columns(2)
+        with mnd_col:
+            max_num_doublings = st.number_input(
+                "max_num_doublings",
+                min_value=1,
+                value=int(defaults.get("max_num_doublings", 10)),
+                key=f"{prefix}max_num_doublings",
+                help="NUTS leapfrog trajectory doubling depth.",
             )
-        with be_col:
-            backend = st.selectbox(
-                "backend",
-                ["numpyro", "blackjax"],
-                index=1,
-                key=f"{prefix}backend",
+        with ta_col:
+            target_accept = st.number_input(
+                "target_accept",
+                min_value=0.0,
+                max_value=1.0,
+                value=float(defaults.get("target_accept", 0.8)),
+                format="%.2f",
+                key=f"{prefix}target_accept",
+                help="NUTS window-adaptation target acceptance rate.",
+            )
+
+        # MCLMC tuning
+        mev_col, mss_col = st.columns(2)
+        with mev_col:
+            mclmc_desired_energy_var = st.number_input(
+                "mclmc_desired_energy_var",
+                min_value=0.0,
+                value=float(defaults.get("mclmc_desired_energy_var", 1e-3)),
+                format="%.1e",
+                key=f"{prefix}mclmc_desired_energy_var",
+                help="MCLMC desired energy variance for L/step_size tuning.",
+            )
+        with mss_col:
+            mclmc_init_step_size_scale = st.number_input(
+                "mclmc_init_step_size_scale",
+                min_value=0.0,
+                value=float(defaults.get("mclmc_init_step_size_scale", 1e-4)),
+                format="%.1e",
+                key=f"{prefix}mclmc_init_step_size_scale",
+                help="MCLMC initial step size = sqrt(total_dim) * scale.",
             )
 
         sigma_e = st.number_input(
@@ -264,9 +301,14 @@ def render_infer_config_form(
             key=f"{prefix}init_cosmo",
             help="Warm-start cosmology from observable",
         )
+        no_progress_bar = st.checkbox(
+            "no_progress_bar",
+            value=bool(defaults.get("no_progress_bar", False)),
+            key=f"{prefix}no_progress_bar",
+            help="Suppress tqdm progress bars (fli-infer --no-progress-bar).",
+        )
 
     return {
-        "observable": observable,
         "path": path,
         "chain_index": chain_index,
         "seed": seed,
@@ -276,65 +318,11 @@ def render_infer_config_form(
         "num_samples": num_samples,
         "batch_count": batch_count,
         "sampler": sampler,
-        "backend": backend,
+        "max_num_doublings": max_num_doublings,
+        "target_accept": target_accept,
+        "mclmc_desired_energy_var": mclmc_desired_energy_var,
+        "mclmc_init_step_size_scale": mclmc_init_step_size_scale,
         "sigma_e": sigma_e,
         "init_cosmo": init_cosmo,
-    }
-
-
-def render_2pcf_config_form(
-    prefix: str = "",
-    defaults: dict | None = None,
-) -> dict:
-    """Render the I/O configuration form for the 2PCF Inference page.
-
-    Parameters
-    ----------
-    prefix:
-        Streamlit key prefix for namespacing.
-    defaults:
-        Optional overrides for default values.
-
-    Returns
-    -------
-    dict with keys: observable, path, chain_index, seed.
-    """
-    defaults = defaults or {}
-
-    with st.container(border=True):
-        st.subheader("2PCF Input/Output Config")
-
-        observable = st.text_input(
-            "observable path",
-            value=defaults.get("observable", "observables/BORN_SMALL_spectra.parquet"),
-            key=f"{prefix}observable",
-            help="Parquet catalog containing a PowerSpectrum field with observed C_ell.",
-        )
-        path = st.text_input(
-            "output path",
-            value=defaults.get("path", "results/2pcf_inference"),
-            key=f"{prefix}output_path",
-        )
-
-        ci_col, seed_col = st.columns(2)
-        with ci_col:
-            chain_index = st.number_input(
-                "chain index",
-                min_value=0,
-                value=int(defaults.get("chain_index", 0)),
-                key=f"{prefix}chain_index",
-            )
-        with seed_col:
-            seed = st.number_input(
-                "seed",
-                min_value=0,
-                value=int(defaults.get("seed", 0)),
-                key=f"{prefix}seed",
-            )
-
-    return {
-        "observable": observable,
-        "path": path,
-        "chain_index": chain_index,
-        "seed": seed,
+        "no_progress_bar": no_progress_bar,
     }

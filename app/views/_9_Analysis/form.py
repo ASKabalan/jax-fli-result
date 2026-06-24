@@ -20,6 +20,8 @@ from .utils import (
     _SPHERICAL_TYPES,
     _fig_to_png,
     _plt_lock,
+    _spectral_category,
+    indexed_field,
 )
 
 # ---------------------------------------------------------------------------
@@ -64,6 +66,7 @@ def _build_entry(local_path: str, source: str = "local", hf_path: str | None = N
         "catalog": catalog,
         "field_type": field_type,
         "is_spectra": field_type in _SPECTRA_TYPES,
+        "index": ":",
         "active": True,
     }
 
@@ -207,6 +210,13 @@ def _update_label(entry_id: str, key: str):
             break
 
 
+def _update_index(entry_id: str, key: str):
+    for e in st.session_state[CATALOGS_KEY]:
+        if e["id"] == entry_id:
+            e["index"] = st.session_state[key]
+            break
+
+
 def _remove_entry(entry_id: str):
     st.session_state[CATALOGS_KEY] = [
         e for e in st.session_state[CATALOGS_KEY] if e["id"] != entry_id
@@ -256,10 +266,18 @@ def _render_file_loading(entries: list[dict]) -> None:
 
         _render_hf_browser()
 
+        if entries:
+            hb, hl, hp, hi, ht, hr = st.columns([0.5, 2, 3, 1, 1.5, 0.5])
+            hb.caption("Active")
+            hl.caption("Label")
+            hp.caption("Path")
+            hi.caption("Index")
+            ht.caption("Type")
+
         for i, entry in enumerate(entries):
             eid = entry["id"]
             is_hf = entry.get("source") == "hf"
-            cb, cl, cp, ct, cr = st.columns([0.5, 2, 3, 1.5, 0.5])
+            cb, cl, cp, ci, ct, cr = st.columns([0.5, 2, 3, 1, 1.5, 0.5])
             with cb:
                 st.checkbox(
                     f"**#{i+1}**",
@@ -289,6 +307,18 @@ def _render_file_loading(entries: list[dict]) -> None:
                     key=f"analysis_path_{eid}",
                     disabled=True,
                     label_visibility="collapsed",
+                )
+            with ci:
+                st.text_input(
+                    "Index",
+                    value=entry.get("index", ":"),
+                    key=f"analysis_index_{eid}",
+                    on_change=_update_index,
+                    args=(eid, f"analysis_index_{eid}"),
+                    disabled=not entry["catalog"].field[0].is_batched(),
+                    label_visibility="collapsed",
+                    placeholder=":",
+                    help="numpy-like index applied everywhere, e.g. ':', '0:6', '-3:'.",
                 )
             with ct:
                 st.caption(entry["field_type"])
@@ -322,12 +352,11 @@ def _render_field_map_section(entries: list[dict]) -> None:
     )
 
     selected_entry = entries[selected_idx]
-    field = selected_entry["catalog"].field[0]
+    field = indexed_field(selected_entry)
     field_type_str = selected_entry["field_type"]
-    _single = not field.is_batched()
 
-    # Invalidate cached PNG when the selected file changes
-    _fkey = selected_entry["path"]
+    # Invalidate cached PNG when the selected file or its index changes
+    _fkey = (selected_entry["path"], selected_entry.get("index", ":"))
     if st.session_state.get("_field_cache_path") != _fkey:
         st.session_state.pop("analysis_field_png", None)
         st.session_state["_field_cache_path"] = _fkey
@@ -341,13 +370,6 @@ def _render_field_map_section(entries: list[dict]) -> None:
             st.markdown("**Field Map Settings**")
             mc1, mc2, mc3, mc4, mc5 = st.columns(5)
             with mc1:
-                map_index = st.text_input(
-                    "Index (numpy-like)",
-                    value=":",
-                    key="analysis_map_index",
-                    disabled=_single,
-                    help="Greyed out when field has a single element.",
-                )
                 map_ncols = st.number_input(
                     "Columns",
                     min_value=1,
@@ -620,16 +642,8 @@ def _render_field_map_section(entries: list[dict]) -> None:
             st.markdown("**Field Map**")
 
             if plot_btn:
-                # Index slicing
-                if _single:
-                    plot_field = field
-                else:
-                    try:
-                        idx = eval(f"np.s_[{map_index}]", {"np": np})
-                        plot_field = field[idx]
-                    except Exception as e:
-                        st.error(f"Invalid index '{map_index}': {e}")
-                        plot_field = field
+                # Field is already sliced by the global per-file index.
+                plot_field = field
 
                 # Apply function
                 if apply_fn.strip():
@@ -810,84 +824,77 @@ def _render_field_map_section(entries: list[dict]) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Section 3: Power Spectra routing
+# Section 3: Summary Stat routing
 # ---------------------------------------------------------------------------
 
 
 def _render_spectra_section(active_entries: list[dict]) -> None:
     st.divider()
-    st.subheader("Power Spectra")
+    st.subheader("Summary Stat")
 
-    ref_entry = active_entries[0]
-    ref_field_type = ref_entry["field_type"]
+    # Route each entry by spectral category so a selection may mix a precomputed
+    # PowerSpectrum with the raw field that produces the same spectrum.
+    cl_entries = [e for e in active_entries if _spectral_category(e) == "cl"]
+    pk_entries = [e for e in active_entries if _spectral_category(e) == "pk"]
+    sph_raw = [e for e in active_entries if e["field_type"] in _SPHERICAL_TYPES]
 
-    # Precomputed spectra: route to the shared tab functions with precomputed=True
-    if ref_entry.get("is_spectra", False):
-        from jax_fli._src.base._enums import SpectralUnit
-
-        cl_entries = [
-            e
-            for e in active_entries
-            if getattr(e["catalog"].field[0], "unit", None)
-            != SpectralUnit.POWER_SPECTRA
-        ]
-        pk_entries = [
-            e
-            for e in active_entries
-            if getattr(e["catalog"].field[0], "unit", None)
-            == SpectralUnit.POWER_SPECTRA
-        ]
-        tab_cl, tab_pk = st.tabs(["Angular Cl", "3D P(k)"])
-        with tab_cl:
-            if cl_entries:
-                from . import spherical_analysis_form
-
-                spherical_analysis_form.cl_tab(
-                    cl_entries, cl_entries[0]["field_type"], precomputed=True
-                )
-            else:
-                st.info("No Angular Cl spectra in the current selection.")
-        with tab_pk:
-            if pk_entries:
-                from . import density_analysis_form
-
-                density_analysis_form.pk_tab(pk_entries, precomputed=True)
-            else:
-                st.info("No 3D P(k) spectra in the current selection.")
-        return
-
-    tab_cl, tab_pk = st.tabs(["Angular Cl", "3D P(k)"])
+    tab_cl, tab_pk, tab_peak, tab_pdf, tab_star = st.tabs(
+        ["Angular Cl", "3D P(k)", "Peak counts", "PDF", "Starlet"]
+    )
 
     with tab_cl:
-        if ref_field_type in (_DENSITY_3D | _PARTICLE_TYPE):
-            msg = (
-                f"Angular Cl not supported for **{ref_field_type}**. "
-                "Use the **3D P(k)** tab for DensityField."
-                if ref_field_type in _DENSITY_3D
-                else f"Angular Cl not supported for **{ref_field_type}**."
-            )
-            st.error(msg)
-        elif ref_field_type in _FLAT_TYPES:
-            st.error(
-                f"Angular Cl is not supported for **{ref_field_type}** (flat types). "
-                "Use a spherical field type for Cl analysis."
-            )
-        else:
+        if cl_entries:
             from . import spherical_analysis_form
 
-            spherical_analysis_form.cl_tab(active_entries, ref_field_type)
+            spherical_analysis_form.cl_tab(cl_entries)
+        else:
+            st.info(
+                "No Angular Cl spectra selected — load a SphericalDensity / "
+                "SphericalKappaField map or a precomputed Angular Cl PowerSpectrum."
+            )
 
     with tab_pk:
-        if ref_field_type not in _DENSITY_3D:
-            st.error(
-                f"3D P(k) only supported for **DensityField**. "
-                f"Current field type: **{ref_field_type}**. "
-                "Use the **Angular Cl** tab for spherical/flat fields."
-            )
-        else:
+        if pk_entries:
             from . import density_analysis_form
 
-            density_analysis_form.pk_tab(active_entries)
+            density_analysis_form.pk_tab(pk_entries)
+        else:
+            st.info(
+                "No 3D P(k) spectra selected — load a DensityField or a precomputed "
+                "3D P(k) PowerSpectrum."
+            )
+
+    with tab_peak:
+        if sph_raw:
+            from . import binned_stats_form
+
+            binned_stats_form.binned_tab(
+                sph_raw, sph_raw[0]["field_type"], "peak_counts"
+            )
+        else:
+            st.info(
+                "Peak counts requires a raw spherical map (SphericalDensity / SphericalKappaField)."
+            )
+
+    with tab_pdf:
+        if sph_raw:
+            from . import binned_stats_form
+
+            binned_stats_form.binned_tab(sph_raw, sph_raw[0]["field_type"], "pdf")
+        else:
+            st.info(
+                "PDF requires a raw spherical map (SphericalDensity / SphericalKappaField)."
+            )
+
+    with tab_star:
+        if sph_raw:
+            from . import starlet_form
+
+            starlet_form.starlet_tab(sph_raw, sph_raw[0]["field_type"])
+        else:
+            st.info(
+                "Starlet requires a raw spherical map (SphericalDensity / SphericalKappaField)."
+            )
 
 
 # ---------------------------------------------------------------------------

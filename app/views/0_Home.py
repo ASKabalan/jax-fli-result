@@ -31,7 +31,7 @@ pip install git+https://github.com/ASKabalan/jax-fli-result.git[raytracing,sampl
 
 | Page | Command | Description |
 |------|---------|-------------|
-| **Simulate** | `simulate` / `grid` | Submit jobs over a mesh × box × cosmology × seed grid. *Per job* mode (`simulate`) launches one job per combination with optional profiling; *Single job* mode (`grid`) submits one job that loops over all combinations internally |
+| **Simulate** | `simulate` | Submit one N-Body simulation job (mesh × box × cosmology × seed), with optional profiling |
 | **Samples** | `samples` | Generate samples of simulation (unconditioned) can be used to generate mock samples of initial conditions |
 | **Infer** | `infer` | Submit a single fli-infer MCMC inference job |
 | **Extract** | `extract` | Submit a fli-extract job to compute chain statistics |

@@ -8,6 +8,7 @@ def render_prior_cosmo_form(
     prefix: str = "",
     defaults: dict | None = None,
     show_ic: bool = True,
+    show_ic_path: bool = True,
 ) -> dict:
     """Render the prior cosmology form.
 
@@ -19,6 +20,10 @@ def render_prior_cosmo_form(
         Optional overrides for default values.
     show_ic:
         When True, render the Initial Conditions section.
+    show_ic_path:
+        When True (fli-samples), a fixed IC exposes an "IC parquet path" field returned as
+        ``initial_condition`` (the ``--initial-condition`` flag). fli-infer passes False — there the
+        fixed IC is supplied by the dedicated ``--ic-*`` source form, so this field is suppressed.
 
     Returns
     -------
@@ -146,7 +151,7 @@ def render_prior_cosmo_form(
                 value=bool(defaults.get("ic_fixed", False)),
                 key=f"{prefix}ic_fixed",
             )
-            if ic_fixed:
+            if ic_fixed and show_ic_path:
                 with st.expander("IC parquet path"):
                     ic_path = st.text_input(
                         "IC parquet path",
@@ -154,6 +159,11 @@ def render_prior_cosmo_form(
                         key=f"{prefix}ic_path",
                     )
                     initial_condition = ic_path.strip() if ic_path else None
+            elif ic_fixed:
+                st.caption(
+                    "Fixed IC is loaded from the **Initial condition** source above "
+                    "(--ic-input / --ic-repo)."
+                )
             else:
                 pg_col1, pg_col2 = st.columns(2)
                 with pg_col1:

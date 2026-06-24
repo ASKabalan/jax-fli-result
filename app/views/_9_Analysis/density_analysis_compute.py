@@ -20,6 +20,7 @@ from .utils import (
     _fig_to_png,
     _make_title,
     _plt_lock,
+    indexed_field,
 )
 
 # ---------------------------------------------------------------------------
@@ -252,20 +253,22 @@ PK_BUILDERS: dict[tuple[bool, bool], Callable[..., Any]] = {
 
 def compute_pk(
     active_entries: list[dict],
-    selected_snaps,
 ) -> tuple[list[tuple[str, object]], object, object]:
-    """Compute 3D P(k) for all active DensityField entries.
+    """Return one 3D P(k) ``PowerSpectrum`` per entry, mixing precomputed and raw.
+
+    Per entry: a precomputed ``PowerSpectrum`` (3D P(k)) is used as-is; a raw
+    ``DensityField`` is transformed via ``.power()``.
 
     Returns
     -------
-    (pk_results, ref_fld, ref_cosmo)
+    (pk_results, ref_fld, ref_cosmo)  — ref_* taken from the first (reference) entry.
     """
     pk_results = []
     for entry in active_entries:
-        fld = entry["catalog"].field[0][selected_snaps]
-        pk_sim = fld.power()
+        fld = indexed_field(entry)
+        pk_sim = fld if entry["field_type"] == "PowerSpectrum" else fld.power()
         pk_results.append((entry["label"], pk_sim))
-    ref_fld = active_entries[0]["catalog"].field[0][selected_snaps]
+    ref_fld = indexed_field(active_entries[0])
     ref_cosmo = active_entries[0]["catalog"].cosmology[0]
     return pk_results, ref_fld, ref_cosmo
 
