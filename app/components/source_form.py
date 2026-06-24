@@ -44,7 +44,9 @@ def render_source_form(
                     help="One parquet glob (or a root dir) per line; each line is a separate chain.",
                 )
                 input_path = [
-                    ln.strip() for ln in raw.splitlines() if ln.strip()
+                    ln.strip()
+                    for ln in raw.splitlines()  # pyright: ignore[reportOptionalMemberAccess]
+                    if ln.strip()
                 ] or None
             else:
                 input_path = (
@@ -76,7 +78,9 @@ def render_source_form(
                     help="One glob inside the repo per line; each line is a separate chain.",
                 )
                 data_files = [
-                    ln.strip() for ln in raw.splitlines() if ln.strip()
+                    ln.strip()
+                    for ln in raw.splitlines()  # pyright: ignore[reportOptionalMemberAccess]
+                    if ln.strip()
                 ] or None
             else:
                 data_files = (

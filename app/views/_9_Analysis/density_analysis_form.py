@@ -148,7 +148,7 @@ def pk_tab(active_entries: list[dict]) -> None:
                             "Power spectra have different number of snapshots — cannot compare."
                         )
                         st.stop()
-                    if len({s[1].wavenumber.size for s in pk_results}) > 1:
+                    if len({s[1].wavenumber.size for s in pk_results}) > 1:  # pyright: ignore[reportGeneralTypeIssues]
                         st.error(
                             "Power spectra have different k-grid lengths — cannot compare. "
                             "This happens when mixing spectra computed on different k binnings."
